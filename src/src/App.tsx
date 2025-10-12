@@ -2,11 +2,15 @@ import { useState, useEffect } from "react";
 import { SpaceList } from "./components/SpaceList";
 import { CreateSpaceModal } from "./components/CreateSpaceModal";
 import { ChatArea } from "./components/ChatArea";
+import { ClaudeMdEditor } from "./components/ClaudeMdEditor";
 import { useSettingsStore } from "./stores/settingsStore";
+import { useSpacesStore } from "./stores/spacesStore";
 
 function App() {
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showClaudeMdEditor, setShowClaudeMdEditor] = useState(false);
   const { loadSettings } = useSettingsStore();
+  const { currentSpace } = useSpacesStore();
 
   useEffect(() => {
     loadSettings();
@@ -43,6 +47,18 @@ function App() {
           </button>
         </div>
 
+        {/* Edit CLAUDE.md */}
+        {currentSpace && (
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+            <button
+              onClick={() => setShowClaudeMdEditor(true)}
+              className="w-full px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-sm transition-colors"
+            >
+              📝 Edit CLAUDE.md
+            </button>
+          </div>
+        )}
+
         {/* Settings */}
         <div className="p-4 border-t border-gray-200 dark:border-gray-700">
           <button className="w-full px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-sm transition-colors">
@@ -54,10 +70,14 @@ function App() {
       {/* Main Area */}
       <ChatArea />
 
-      {/* Create Space Modal */}
+      {/* Modals */}
       <CreateSpaceModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
+      />
+      <ClaudeMdEditor
+        isOpen={showClaudeMdEditor}
+        onClose={() => setShowClaudeMdEditor(false)}
       />
     </div>
   );
