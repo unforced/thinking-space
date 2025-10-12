@@ -1,0 +1,15 @@
+{
+  "name": "thinking-space",
+  "version": "0.1.0",
+  "description": "A spatial interface for Claude Agent SDK",
+  "scripts": {
+    "dev": "cd src && npm run dev",
+    "build": "cd src && npm run build",
+    "tauri": "cd src && npm run tauri",
+    "tauri:dev": "cd src && npm run tauri dev",
+    "tauri:build": "cd src && npm run tauri build"
+  },
+  "keywords": ["tauri", "claude", "ai", "second-brain"],
+  "author": "Thinking Space Team",
+  "license": "MIT"
+}
