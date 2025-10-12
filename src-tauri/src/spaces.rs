@@ -1,0 +1,169 @@
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::PathBuf;
+use uuid::Uuid;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Space {
+    pub id: String,
+    pub name: String,
+    pub path: String,
+    pub claude_md_path: String,
+    pub created_at: i64,
+    pub last_accessed_at: i64,
+    pub template: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateSpaceRequest {
+    pub name: String,
+    pub template: String,
+}
+
+pub fn get_spaces_dir() -> Result<PathBuf, String> {
+    let home = dirs::home_dir().ok_or("Could not find home directory")?;
+    let spaces_dir = home.join(".thinking-space").join("spaces");
+
+    if !spaces_dir.exists() {
+        fs::create_dir_all(&spaces_dir)
+            .map_err(|e| format!("Failed to create spaces directory: {}", e))?;
+    }
+
+    Ok(spaces_dir)
+}
+
+pub fn get_template_content(template: &str) -> String {
+    match template {
+        "quick-start" => r#"# {name}
+
+## Purpose
+This is a workspace for [brief description].
+
+## Context
+[Any relevant context Claude should know]
+
+## Guidelines
+- [Any specific instructions for Claude]
+"#
+        .to_string(),
+        "custom" => r#"# {name}
+
+[Write your own instructions for Claude]
+"#
+        .to_string(),
+        _ => get_template_content("quick-start"),
+    }
+}
+
+#[tauri::command]
+pub fn list_spaces() -> Result<Vec<Space>, String> {
+    let spaces_dir = get_spaces_dir()?;
+    let mut spaces = Vec::new();
+
+    if let Ok(entries) = fs::read_dir(spaces_dir) {
+        for entry in entries.flatten() {
+            if entry.path().is_dir() {
+                let metadata_path = entry.path().join(".space-metadata.json");
+                if let Ok(contents) = fs::read_to_string(metadata_path) {
+                    if let Ok(space) = serde_json::from_str::<Space>(&contents) {
+                        spaces.push(space);
+                    }
+                }
+            }
+        }
+    }
+
+    // Sort by last accessed (most recent first)
+    spaces.sort_by(|a, b| b.last_accessed_at.cmp(&a.last_accessed_at));
+
+    Ok(spaces)
+}
+
+#[tauri::command]
+pub fn create_space(request: CreateSpaceRequest) -> Result<Space, String> {
+    let spaces_dir = get_spaces_dir()?;
+    let id = Uuid::new_v4().to_string();
+    let space_dir = spaces_dir.join(&id);
+
+    // Create space directory
+    fs::create_dir_all(&space_dir)
+        .map_err(|e| format!("Failed to create space directory: {}", e))?;
+
+    // Create CLAUDE.md from template
+    let template_content = get_template_content(&request.template);
+    let claude_md_content = template_content.replace("{name}", &request.name);
+    let claude_md_path = space_dir.join("CLAUDE.md");
+
+    fs::write(&claude_md_path, claude_md_content)
+        .map_err(|e| format!("Failed to create CLAUDE.md: {}", e))?;
+
+    // Create space metadata
+    let now = chrono::Utc::now().timestamp();
+    let space = Space {
+        id: id.clone(),
+        name: request.name,
+        path: space_dir.to_string_lossy().to_string(),
+        claude_md_path: claude_md_path.to_string_lossy().to_string(),
+        created_at: now,
+        last_accessed_at: now,
+        template: Some(request.template),
+    };
+
+    // Save metadata
+    let metadata_path = space_dir.join(".space-metadata.json");
+    let metadata_json = serde_json::to_string_pretty(&space)
+        .map_err(|e| format!("Failed to serialize metadata: {}", e))?;
+
+    fs::write(metadata_path, metadata_json)
+        .map_err(|e| format!("Failed to write metadata: {}", e))?;
+
+    Ok(space)
+}
+
+#[tauri::command]
+pub fn delete_space(id: String) -> Result<(), String> {
+    let spaces_dir = get_spaces_dir()?;
+    let space_dir = spaces_dir.join(&id);
+
+    if space_dir.exists() {
+        fs::remove_dir_all(space_dir).map_err(|e| format!("Failed to delete space: {}", e))?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn update_last_accessed(id: String) -> Result<(), String> {
+    let spaces_dir = get_spaces_dir()?;
+    let metadata_path = spaces_dir.join(&id).join(".space-metadata.json");
+
+    if let Ok(contents) = fs::read_to_string(&metadata_path) {
+        if let Ok(mut space) = serde_json::from_str::<Space>(&contents) {
+            space.last_accessed_at = chrono::Utc::now().timestamp();
+
+            let metadata_json = serde_json::to_string_pretty(&space)
+                .map_err(|e| format!("Failed to serialize metadata: {}", e))?;
+
+            fs::write(metadata_path, metadata_json)
+                .map_err(|e| format!("Failed to write metadata: {}", e))?;
+        }
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn read_claude_md(space_id: String) -> Result<String, String> {
+    let spaces_dir = get_spaces_dir()?;
+    let claude_md_path = spaces_dir.join(&space_id).join("CLAUDE.md");
+
+    fs::read_to_string(claude_md_path).map_err(|e| format!("Failed to read CLAUDE.md: {}", e))
+}
+
+#[tauri::command]
+pub fn write_claude_md(space_id: String, content: String) -> Result<(), String> {
+    let spaces_dir = get_spaces_dir()?;
+    let claude_md_path = spaces_dir.join(&space_id).join("CLAUDE.md");
+
+    fs::write(claude_md_path, content).map_err(|e| format!("Failed to write CLAUDE.md: {}", e))
+}
