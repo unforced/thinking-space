@@ -3,12 +3,14 @@ import { SpaceList } from "./components/SpaceList";
 import { CreateSpaceModal } from "./components/CreateSpaceModal";
 import { ChatArea } from "./components/ChatArea";
 import { ClaudeMdEditor } from "./components/ClaudeMdEditor";
+import { SettingsPanel } from "./components/SettingsPanel";
 import { useSettingsStore } from "./stores/settingsStore";
 import { useSpacesStore } from "./stores/spacesStore";
 
 function App() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showClaudeMdEditor, setShowClaudeMdEditor] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const { loadSettings } = useSettingsStore();
   const { currentSpace } = useSpacesStore();
 
@@ -61,7 +63,10 @@ function App() {
 
         {/* Settings */}
         <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-          <button className="w-full px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-sm transition-colors">
+          <button
+            onClick={() => setShowSettings(true)}
+            className="w-full px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-sm transition-colors"
+          >
             ⚙️ Settings
           </button>
         </div>
@@ -78,6 +83,10 @@ function App() {
       <ClaudeMdEditor
         isOpen={showClaudeMdEditor}
         onClose={() => setShowClaudeMdEditor(false)}
+      />
+      <SettingsPanel
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
       />
     </div>
   );

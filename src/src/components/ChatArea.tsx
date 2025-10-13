@@ -1,24 +1,25 @@
-import { useState, useRef, useEffect } from 'react'
-import { useChatStore } from '../stores/chatStore'
-import { useSpacesStore } from '../stores/spacesStore'
+import { useState, useRef, useEffect } from "react";
+import { useChatStore } from "../stores/chatStore";
+import { useSpacesStore } from "../stores/spacesStore";
 
 export function ChatArea() {
-  const [input, setInput] = useState('')
-  const { messages, streaming, sendMessage } = useChatStore()
-  const { currentSpace } = useSpacesStore()
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [input, setInput] = useState("");
+  const { messages, streaming, sendMessage, currentStreamingMessage, error } =
+    useChatStore();
+  const { currentSpace } = useSpacesStore();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, currentStreamingMessage]);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!input.trim() || streaming || !currentSpace) return
+    e.preventDefault();
+    if (!input.trim() || streaming || !currentSpace) return;
 
-    await sendMessage(input.trim())
-    setInput('')
-  }
+    await sendMessage(input.trim());
+    setInput("");
+  };
 
   if (!currentSpace) {
     return (
@@ -29,11 +30,12 @@ export function ChatArea() {
             Welcome to Thinking Space
           </h2>
           <p className="text-gray-600 dark:text-gray-400">
-            Select a Space from the sidebar or create a new one to start thinking with Claude.
+            Select a Space from the sidebar or create a new one to start
+            thinking with Claude.
           </p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -58,16 +60,24 @@ export function ChatArea() {
           </div>
         ) : (
           <div className="space-y-6 max-w-3xl mx-auto">
-            {messages.map(message => (
+            {/* Error message */}
+            {error && (
+              <div className="bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 rounded-lg px-4 py-3 text-red-800 dark:text-red-200">
+                <strong>Error:</strong> {error}
+              </div>
+            )}
+
+            {/* Message history */}
+            {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
                   className={`max-w-[80%] rounded-lg px-4 py-3 ${
-                    message.role === 'user'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
+                    message.role === "user"
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white"
                   }`}
                 >
                   <div className="whitespace-pre-wrap">{message.content}</div>
@@ -79,13 +89,43 @@ export function ChatArea() {
                 </div>
               </div>
             ))}
-            {streaming && (
+
+            {/* Streaming message */}
+            {streaming && currentStreamingMessage && (
+              <div className="flex justify-start">
+                <div className="bg-gray-100 dark:bg-gray-800 rounded-lg px-4 py-3 max-w-[80%]">
+                  <div className="whitespace-pre-wrap text-gray-900 dark:text-white">
+                    {currentStreamingMessage}
+                  </div>
+                  <div className="flex items-center gap-1 mt-2">
+                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
+                    <div
+                      className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"
+                      style={{ animationDelay: "75ms" }}
+                    ></div>
+                    <div
+                      className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"
+                      style={{ animationDelay: "150ms" }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Loading indicator */}
+            {streaming && !currentStreamingMessage && (
               <div className="flex justify-start">
                 <div className="bg-gray-100 dark:bg-gray-800 rounded-lg px-4 py-3">
                   <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse delay-75"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse delay-150"></div>
+                    <div
+                      className="w-2 h-2 bg-gray-400 rounded-full animate-pulse"
+                      style={{ animationDelay: "75ms" }}
+                    ></div>
+                    <div
+                      className="w-2 h-2 bg-gray-400 rounded-full animate-pulse"
+                      style={{ animationDelay: "150ms" }}
+                    ></div>
                   </div>
                 </div>
               </div>
@@ -103,9 +143,9 @@ export function ChatArea() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  handleSubmit(e)
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmit(e);
                 }
               }}
               placeholder="Type a message... (Shift+Enter for new line)"
@@ -114,6 +154,7 @@ export function ChatArea() {
                        focus:ring-2 focus:ring-blue-500 focus:border-transparent
                        resize-none"
               rows={3}
+              disabled={streaming}
             />
             <button
               type="submit"
@@ -122,11 +163,11 @@ export function ChatArea() {
                        transition-colors disabled:opacity-50 disabled:cursor-not-allowed
                        self-end"
             >
-              Send
+              {streaming ? "Sending..." : "Send"}
             </button>
           </div>
         </form>
       </div>
     </div>
-  )
+  );
 }
