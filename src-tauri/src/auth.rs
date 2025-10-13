@@ -51,16 +51,29 @@ pub fn load_claude_credentials() -> Result<Option<OAuthCredentials>, String> {
         use security_framework::passwords::*;
 
         // Try to get credentials from macOS Keychain
-        // Claude Code stores under service "ClaudeCode" and account "oauth"
-        match get_generic_password("ClaudeCode", "oauth") {
+        // Claude Code stores under service "Claude Code-credentials" and account is username
+
+        // Get current username
+        let username = std::env::var("USER").unwrap_or_else(|_| "unknown".to_string());
+
+        match get_generic_password("Claude Code-credentials", &username) {
             Ok(password) => {
                 let creds_str = String::from_utf8(password.to_vec())
                     .map_err(|e| format!("Invalid UTF-8 in keychain: {}", e))?;
 
-                let creds: OAuthCredentials = serde_json::from_str(&creds_str)
+                // Parse the nested structure: { "claudeAiOauth": { credentials } }
+                let wrapper: serde_json::Value = serde_json::from_str(&creds_str)
                     .map_err(|e| format!("Failed to parse keychain credentials: {}", e))?;
 
-                Ok(Some(creds))
+                // Extract the claudeAiOauth object
+                if let Some(oauth_obj) = wrapper.get("claudeAiOauth") {
+                    let creds: OAuthCredentials = serde_json::from_value(oauth_obj.clone())
+                        .map_err(|e| format!("Failed to parse OAuth credentials: {}", e))?;
+
+                    Ok(Some(creds))
+                } else {
+                    Err("Keychain credentials missing 'claudeAiOauth' field".to_string())
+                }
             }
             Err(_) => {
                 // Not found in keychain, try file
