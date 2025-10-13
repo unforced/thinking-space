@@ -134,14 +134,8 @@ class AgentSidecar {
   async sendMessage(id, params) {
     const { sessionId, message } = params;
 
-    const session = this.sessions.get(sessionId);
-    if (!session) {
-      this.sendError(id, -32000, `Session ${sessionId} not found`);
-      return;
-    }
-
     try {
-      // For simplicity, create a new query for each message
+      // Create a new query for each message
       // In a production system, you might want to maintain conversation history
       const {
         apiKey,
@@ -247,6 +241,8 @@ class AgentSidecar {
   }
 
   send(message) {
+    // Debug log to stderr
+    console.error("[SIDECAR SEND]", JSON.stringify(message).substring(0, 100));
     console.log(JSON.stringify(message));
   }
 

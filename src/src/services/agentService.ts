@@ -48,6 +48,7 @@ export class AgentService {
     // Listen for messages from sidecar
     listen<SidecarMessage>("sidecar-message", (event) => {
       const message = event.payload;
+      console.log("[FRONTEND] Received sidecar message:", message);
 
       // Handle notifications (streaming events)
       if (message.method === "streamEvent" && message.params) {
@@ -153,6 +154,7 @@ export class AgentService {
       });
 
       // Send message to sidecar
+      console.log("[FRONTEND] Sending message with requestId:", requestId);
       await invoke("agent_send_message", {
         params: {
           request_id: requestId,
@@ -165,6 +167,7 @@ export class AgentService {
           max_turns: 10,
         },
       });
+      console.log("[FRONTEND] Message sent, waiting for stream...");
 
       // Yield chunks as they arrive
       while (!streamComplete) {
