@@ -98,7 +98,8 @@ pub fn create_space(request: CreateSpaceRequest) -> Result<Space, String> {
         .map_err(|e| format!("Failed to create CLAUDE.md: {}", e))?;
 
     // Create space metadata
-    let now = chrono::Utc::now().timestamp();
+    // Use timestamp_millis() to match JavaScript Date expectations
+    let now = chrono::Utc::now().timestamp_millis();
     let space = Space {
         id: id.clone(),
         name: request.name,
@@ -139,7 +140,8 @@ pub fn update_last_accessed(id: String) -> Result<(), String> {
 
     if let Ok(contents) = fs::read_to_string(&metadata_path) {
         if let Ok(mut space) = serde_json::from_str::<Space>(&contents) {
-            space.last_accessed_at = chrono::Utc::now().timestamp();
+            // Use timestamp_millis() to match JavaScript Date expectations
+            space.last_accessed_at = chrono::Utc::now().timestamp_millis();
 
             let metadata_json = serde_json::to_string_pretty(&space)
                 .map_err(|e| format!("Failed to serialize metadata: {}", e))?;

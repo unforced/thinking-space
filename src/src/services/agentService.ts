@@ -7,10 +7,16 @@ export interface AgentMessage {
   content: string;
 }
 
+export interface ConversationMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export interface SendMessageOptions {
   spaceId: string;
   spacePath: string;
   claudeMdContent: string;
+  conversationHistory?: ConversationMessage[];
 }
 
 interface SidecarMessage {
@@ -114,7 +120,7 @@ export class AgentService {
     message: string,
     options: SendMessageOptions,
   ): AsyncGenerator<string, void, unknown> {
-    const { claudeMdContent, spacePath } = options;
+    const { claudeMdContent, spacePath, conversationHistory } = options;
 
     try {
       // Get authentication credentials (OAuth or API key)
@@ -155,6 +161,11 @@ export class AgentService {
 
       // Send message to sidecar
       console.log("[FRONTEND] Sending message with requestId:", requestId);
+      console.log(
+        "[FRONTEND] Including",
+        conversationHistory?.length || 0,
+        "previous messages",
+      );
       await invoke("agent_send_message", {
         params: {
           request_id: requestId,
@@ -165,6 +176,7 @@ export class AgentService {
           model: "claude-sonnet-4-20250514",
           allowed_tools: ["Read", "Write", "Grep", "Bash"],
           max_turns: 10,
+          conversation_history: conversationHistory || null,
         },
       });
       console.log("[FRONTEND] Message sent, waiting for stream...");

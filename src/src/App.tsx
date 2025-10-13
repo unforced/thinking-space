@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { SpaceList } from "./components/SpaceList";
 import { CreateSpaceModal } from "./components/CreateSpaceModal";
 import { ChatArea } from "./components/ChatArea";
@@ -16,6 +17,11 @@ function App() {
 
   useEffect(() => {
     loadSettings();
+
+    // Start the agent sidecar
+    invoke("agent_start_sidecar")
+      .then(() => console.log("Agent sidecar started"))
+      .catch((error) => console.error("Failed to start agent sidecar:", error));
   }, [loadSettings]);
 
   return (

@@ -79,14 +79,31 @@ impl SidecarManager {
             let reader = BufReader::new(stdout);
             for line in reader.lines() {
                 if let Ok(line) = line {
-                    if let Ok(response) = serde_json::from_str::<JsonRpcResponse>(&line) {
-                        // Emit event to frontend
-                        if let Some(ref handle) = app_handle {
-                            let _ = handle.emit("sidecar-message", response);
+                    eprintln!(
+                        "[RUST RECEIVED] {} chars: {}",
+                        line.len(),
+                        &line[..line.len().min(100)]
+                    );
+                    match serde_json::from_str::<JsonRpcResponse>(&line) {
+                        Ok(response) => {
+                            eprintln!(
+                                "[RUST PARSED] method={:?} id={:?}",
+                                response.method, response.id
+                            );
+                            // Emit event to frontend
+                            if let Some(ref handle) = app_handle {
+                                if let Err(e) = handle.emit("sidecar-message", response) {
+                                    eprintln!("[RUST EMIT ERROR] {}", e);
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("[RUST PARSE ERROR] {}", e);
                         }
                     }
                 }
             }
+            eprintln!("[RUST] Stdout reading thread ended");
         });
 
         *process_lock = Some(child);
@@ -175,6 +192,12 @@ impl Drop for SidecarManager {
 // Tauri commands
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct ConversationMessage {
+    pub role: String, // "user" or "assistant"
+    pub content: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SendMessageParams {
     pub request_id: u64,
     pub message: String,
@@ -184,6 +207,7 @@ pub struct SendMessageParams {
     pub model: Option<String>,
     pub allowed_tools: Option<Vec<String>>,
     pub max_turns: Option<u32>,
+    pub conversation_history: Option<Vec<ConversationMessage>>,
 }
 
 #[tauri::command]
@@ -191,6 +215,11 @@ pub fn agent_send_message(
     state: tauri::State<'_, Arc<SidecarManager>>,
     params: SendMessageParams,
 ) -> Result<(), String> {
+    eprintln!(
+        "[RUST] agent_send_message called with request_id={}",
+        params.request_id
+    );
+
     let request_params = serde_json::json!({
         "sessionId": format!("session-{}", params.request_id),
         "message": params.message,
@@ -200,9 +229,15 @@ pub fn agent_send_message(
         "model": params.model,
         "allowedTools": params.allowed_tools,
         "maxTurns": params.max_turns,
+        "conversationHistory": params.conversation_history,
     });
 
+    eprintln!(
+        "[RUST] Sending request to sidecar: {}",
+        serde_json::to_string(&request_params).unwrap_or_default()
+    );
     state.send_request("sendMessage", request_params, params.request_id)?;
+    eprintln!("[RUST] Request sent successfully");
     Ok(())
 }
 

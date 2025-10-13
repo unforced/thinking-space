@@ -132,11 +132,9 @@ class AgentSidecar {
   }
 
   async sendMessage(id, params) {
-    const { sessionId, message } = params;
+    const { sessionId, message, conversationHistory } = params;
 
     try {
-      // Create a new query for each message
-      // In a production system, you might want to maintain conversation history
       const {
         apiKey,
         workingDirectory,
@@ -152,11 +150,24 @@ class AgentSidecar {
         process.env.ANTHROPIC_API_KEY = apiKey;
       }
 
+      // If we have conversation history, build the full context
+      // For now, we'll concatenate history into the system prompt
+      // TODO: Use SDK's proper message history API when available
+      let enhancedSystemPrompt = systemPrompt || "";
+
+      if (conversationHistory && conversationHistory.length > 0) {
+        enhancedSystemPrompt += "\n\n# Previous Conversation:\n";
+        for (const msg of conversationHistory) {
+          enhancedSystemPrompt += `\n${msg.role === "user" ? "User" : "Assistant"}: ${msg.content}\n`;
+        }
+        enhancedSystemPrompt += "\n# Current Request:\n";
+      }
+
       const querySession = query({
         prompt: message,
         options: {
           model: model || "claude-sonnet-4-20250514",
-          systemPrompt: systemPrompt || undefined,
+          systemPrompt: enhancedSystemPrompt || undefined,
           cwd: workingDirectory,
           allowedTools: allowedTools || ["Read", "Write", "Grep", "Bash"],
           maxTurns: maxTurns || 10,
@@ -243,9 +254,21 @@ class AgentSidecar {
   }
 
   send(message) {
-    // Debug log to stderr
-    console.error("[SIDECAR SEND]", JSON.stringify(message).substring(0, 100));
-    console.log(JSON.stringify(message));
+    // JSON.stringify automatically escapes newlines and special characters
+    // This ensures the entire message is on a single line
+    const messageStr = JSON.stringify(message);
+    // Debug log to stderr (truncated for readability)
+    console.error(
+      `[SIDECAR SEND] ${messageStr.length} chars: ${messageStr.substring(0, 100)}...`,
+    );
+    // Write to stdout with explicit newline
+    // The newline separates messages, but the JSON itself should not contain literal newlines
+    const written = process.stdout.write(messageStr + "\n");
+    if (!written) {
+      console.error(
+        "[SIDECAR WARN] stdout.write returned false, buffer might be full",
+      );
+    }
   }
 
   cleanup() {
