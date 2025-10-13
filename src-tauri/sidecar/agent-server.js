@@ -146,7 +146,9 @@ class AgentSidecar {
         maxTurns,
       } = params;
 
-      if (apiKey) {
+      // Only set API key if explicitly provided
+      // If not provided, SDK will use Claude Code's credentials automatically
+      if (apiKey && apiKey !== "__USE_CLAUDE_CODE__") {
         process.env.ANTHROPIC_API_KEY = apiKey;
       }
 

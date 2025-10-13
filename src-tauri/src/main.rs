@@ -33,6 +33,7 @@ fn main() {
             spaces::update_last_accessed,
             spaces::read_claude_md,
             spaces::write_claude_md,
+            auth::has_claude_code_auth,
             auth::load_claude_credentials,
             auth::load_claude_credentials_file,
             auth::load_api_key,

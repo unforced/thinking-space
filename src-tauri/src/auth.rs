@@ -43,7 +43,21 @@ pub fn load_claude_credentials_file() -> Result<Option<OAuthCredentials>, String
     Ok(Some(creds))
 }
 
+/// Check if Claude Code authentication exists (without reading credentials)
+/// This checks for the Claude CLI binary, avoiding Keychain access prompts entirely
+#[tauri::command]
+pub fn has_claude_code_auth() -> Result<bool, String> {
+    // Check if Claude Code CLI exists - indicates it's installed and likely authenticated
+    let home = dirs::home_dir().ok_or("Could not find home directory")?;
+    let claude_binary = home.join(".claude").join("local").join("claude");
+
+    // If the binary exists, assume authentication is available
+    // The Agent SDK will handle reading credentials without triggering our app's Keychain prompt
+    Ok(claude_binary.exists())
+}
+
 /// Load OAuth credentials from system keychain (macOS/Linux/Windows)
+/// NOTE: This triggers Keychain access prompts - prefer has_claude_code_auth()
 #[tauri::command]
 pub fn load_claude_credentials() -> Result<Option<OAuthCredentials>, String> {
     #[cfg(target_os = "macos")]

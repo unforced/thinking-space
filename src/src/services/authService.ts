@@ -101,34 +101,26 @@ export class AuthService {
   }
 
   /**
-   * Load OAuth credentials from Claude Code
-   * Checks:
-   * 1. macOS Keychain (via Tauri command)
-   * 2. ~/.claude/.credentials.json file
+   * Check if Claude Code authentication exists
+   * Returns placeholder token to indicate SDK should handle auth
+   * (Avoids Keychain prompts - Agent SDK reads credentials automatically)
    */
   private async loadClaudeCodeCredentials(): Promise<OAuthCredentials | null> {
     try {
-      // Try loading from system (Keychain on macOS, etc.)
-      const keychainCreds = await invoke<OAuthCredentials | null>(
-        "load_claude_credentials",
-      );
-      if (keychainCreds) {
-        return keychainCreds;
+      // Just check if Claude Code is authenticated without reading credentials
+      // This avoids triggering Keychain access prompts
+      const hasAuth = await invoke<boolean>("has_claude_code_auth");
+      if (hasAuth) {
+        // Return placeholder - Agent SDK will find credentials itself
+        return {
+          accessToken: "__USE_CLAUDE_CODE__",
+          refreshToken: "",
+          expiresAt: Date.now() + 86400000, // 24 hours
+          scopes: ["user:inference"],
+        };
       }
     } catch (error) {
-      console.log("Could not load credentials from keychain:", error);
-    }
-
-    try {
-      // Try loading from credentials file
-      const fileCreds = await invoke<OAuthCredentials | null>(
-        "load_claude_credentials_file",
-      );
-      if (fileCreds) {
-        return fileCreds;
-      }
-    } catch (error) {
-      console.log("Could not load credentials from file:", error);
+      console.log("Could not check Claude Code auth:", error);
     }
 
     return null;
