@@ -1,0 +1,13 @@
+{
+  "name": "thinking-space-agent-sidecar",
+  "version": "0.1.0",
+  "description": "Node.js sidecar process for Claude Agent SDK",
+  "type": "module",
+  "main": "agent-server.js",
+  "scripts": {
+    "start": "node agent-server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.1.0"
+  }
+}

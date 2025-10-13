@@ -2,7 +2,6 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { agentService } from "../services/agentService";
 import { useSpacesStore } from "./spacesStore";
-import { useSettingsStore } from "./settingsStore";
 
 export interface Message {
   id: string;
@@ -35,15 +34,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   sendMessage: async (content: string, files?: string[]) => {
     const currentSpace = useSpacesStore.getState().currentSpace;
-    const apiKey = useSettingsStore.getState().apiKey;
 
     if (!currentSpace) {
       set({ error: "No space selected" });
-      return;
-    }
-
-    if (!apiKey) {
-      set({ error: "No API key configured. Please add one in Settings." });
       return;
     }
 
@@ -69,12 +62,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const assistantMessageId = crypto.randomUUID();
       let fullResponse = "";
 
-      // Stream from agent
+      // Stream from agent (auth handled automatically by agentService)
       for await (const chunk of agentService.sendMessage(content, {
         spaceId: currentSpace.id,
         spacePath: currentSpace.path,
         claudeMdContent,
-        apiKey,
       })) {
         fullResponse += chunk;
         set({ currentStreamingMessage: fullResponse });
