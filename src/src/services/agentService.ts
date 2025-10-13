@@ -94,10 +94,21 @@ export class AgentService {
 
     // Handle assistant messages
     if (event.type === "assistant" && event.message?.content) {
-      return event.message.content
-        .filter((block: any) => block.type === "text")
-        .map((block: any) => block.text)
-        .join("");
+      let text = "";
+      for (const block of event.message.content) {
+        if (block.type === "text") {
+          text += block.text;
+        } else if (block.type === "tool_use") {
+          // Add visual indicator for tool use
+          text += `\n\n🔧 Using tool: ${block.name}\n`;
+        }
+      }
+      return text;
+    }
+
+    // Handle system messages (like tool results)
+    if (event.type === "system" && event.subtype === "tool_result") {
+      return `\n✓ Tool ${event.tool_result?.tool_name} completed\n\n`;
     }
 
     // Handle streaming events
@@ -174,7 +185,7 @@ export class AgentService {
           working_directory: spacePath,
           system_prompt: claudeMdContent || null,
           model: "claude-sonnet-4-20250514",
-          allowed_tools: ["Read", "Write", "Grep", "Bash"],
+          allowed_tools: ["Read", "Write", "Grep", "Bash", "WebSearch"],
           max_turns: 10,
           conversation_history: conversationHistory || null,
         },

@@ -169,8 +169,28 @@ class AgentSidecar {
           model: model || "claude-sonnet-4-20250514",
           systemPrompt: enhancedSystemPrompt || undefined,
           cwd: workingDirectory,
-          allowedTools: allowedTools || ["Read", "Write", "Grep", "Bash"],
+          allowedTools: allowedTools || [
+            "Read",
+            "Write",
+            "Grep",
+            "Bash",
+            "WebSearch",
+          ],
           maxTurns: maxTurns || 10,
+          // Simple permission callback - auto-approve all tools for now
+          // TODO: Implement proper UI prompts via IPC back to frontend
+          canUseTool: async (toolName, input) => {
+            console.error(`[SIDECAR] Tool permission requested: ${toolName}`);
+            console.error(
+              `[SIDECAR] Input:`,
+              JSON.stringify(input).substring(0, 100),
+            );
+            // Auto-approve for now
+            return {
+              behavior: "allow",
+              updatedInput: input,
+            };
+          },
         },
       });
 
@@ -206,6 +226,7 @@ class AgentSidecar {
           } else if (block.type === "tool_use") {
             return {
               type: "tool_use",
+              id: block.id,
               name: block.name,
               input: block.input,
             };
@@ -218,6 +239,16 @@ class AgentSidecar {
         type: event.event.type,
         delta: event.event.delta,
       };
+    } else if (event.type === "system") {
+      // System messages (tool results, etc)
+      serialized.subtype = event.subtype;
+      if (event.subtype === "tool_result") {
+        serialized.tool_result = {
+          tool_use_id: event.tool_use_id,
+          tool_name: event.tool_name,
+          is_error: event.is_error,
+        };
+      }
     } else if (event.type === "result") {
       serialized.result = {
         num_turns: event.num_turns,
