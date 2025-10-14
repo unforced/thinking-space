@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeHighlight from "rehype-highlight";
 import { useChatStore } from "../stores/chatStore";
 import { useSpacesStore } from "../stores/spacesStore";
+import "highlight.js/styles/github-dark.css";
 
 export function ChatArea() {
   const [input, setInput] = useState("");
@@ -80,7 +84,16 @@ export function ChatArea() {
                       : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white"
                   }`}
                 >
-                  <div className="whitespace-pre-wrap">{message.content}</div>
+                  <div
+                    className={`prose ${message.role === "user" ? "prose-invert" : "dark:prose-invert"} max-w-none prose-pre:bg-gray-900 prose-pre:text-gray-100`}
+                  >
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      rehypePlugins={[rehypeHighlight]}
+                    >
+                      {message.content}
+                    </ReactMarkdown>
+                  </div>
                   {message.metadata?.files && (
                     <div className="mt-2 text-xs opacity-75">
                       📎 {message.metadata.files.length} file(s) attached
@@ -94,8 +107,13 @@ export function ChatArea() {
             {streaming && currentStreamingMessage && (
               <div className="flex justify-start">
                 <div className="bg-gray-100 dark:bg-gray-800 rounded-lg px-4 py-3 max-w-[80%]">
-                  <div className="whitespace-pre-wrap text-gray-900 dark:text-white">
-                    {currentStreamingMessage}
+                  <div className="prose dark:prose-invert max-w-none prose-pre:bg-gray-900 prose-pre:text-gray-100 text-gray-900 dark:text-white">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      rehypePlugins={[rehypeHighlight]}
+                    >
+                      {currentStreamingMessage}
+                    </ReactMarkdown>
                   </div>
                   <div className="flex items-center gap-1 mt-2">
                     <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
