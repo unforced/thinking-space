@@ -131,6 +131,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       // Stream from agent (auth handled automatically by agentService)
       console.log("[CHAT STORE] Calling agentService.sendMessage...");
       console.log(
+        "[CHAT STORE] Message with context length:",
+        messageWithContext.length,
+      );
+      console.log(
+        "[CHAT STORE] Message preview:",
+        messageWithContext.substring(0, 200),
+      );
+      console.log(
         "[CHAT STORE] Conversation history:",
         conversationHistory.length,
         "messages",

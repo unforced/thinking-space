@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
 
 export interface AttachedFile {
   name: string;
@@ -19,32 +20,57 @@ export function FileAttachment({
   onFileRemoved,
   disabled = false,
 }: FileAttachmentProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  const handleFileSelect = async (fileList: FileList | null) => {
-    if (!fileList || fileList.length === 0) return;
+  const handleFileSelect = async () => {
+    if (disabled) return;
 
-    const newFiles: AttachedFile[] = [];
-
-    for (let i = 0; i < fileList.length; i++) {
-      const file = fileList[i];
-      // Get the full path from the file (webkitRelativePath or name)
-      const path = (file as any).path || file.name;
-
-      newFiles.push({
-        name: file.name,
-        path: path,
-        size: file.size,
+    try {
+      // Use Tauri's file dialog to get proper file paths
+      const selected = await open({
+        multiple: true,
+        title: "Select files to attach",
       });
-    }
 
-    onFilesAdded(newFiles);
+      if (!selected) return;
+
+      // Handle both single file (string) and multiple files (string[])
+      const paths = Array.isArray(selected) ? selected : [selected];
+
+      const newFiles: AttachedFile[] = await Promise.all(
+        paths.map(async (path) => {
+          // Get file name from path
+          const name = path.split("/").pop() || path.split("\\").pop() || path;
+
+          // Get file size
+          let size = 0;
+          try {
+            const metadata = await fetch(`asset://localhost/${path}`).then(
+              (r) => r.blob(),
+            );
+            size = metadata.size;
+          } catch (error) {
+            console.warn(`Could not get size for ${path}:`, error);
+            size = 0;
+          }
+
+          return {
+            name,
+            path,
+            size,
+          };
+        }),
+      );
+
+      onFilesAdded(newFiles);
+    } catch (error) {
+      console.error("Failed to select files:", error);
+    }
   };
 
   const handleClick = () => {
     if (!disabled) {
-      fileInputRef.current?.click();
+      handleFileSelect();
     }
   };
 
@@ -60,12 +86,38 @@ export function FileAttachment({
     setIsDragging(false);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
 
-    if (!disabled) {
-      handleFileSelect(e.dataTransfer.files);
+    if (disabled) return;
+
+    // In Tauri, drag and drop files should provide paths in the dataTransfer
+    const items = e.dataTransfer.items;
+    if (!items) return;
+
+    const newFiles: AttachedFile[] = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.kind === "file") {
+        const file = item.getAsFile();
+        if (file) {
+          // Try to get the path from the file object
+          // In Tauri, this might be available via webkitRelativePath or a custom property
+          const path = (file as any).path || file.name;
+
+          newFiles.push({
+            name: file.name,
+            path: path,
+            size: file.size,
+          });
+        }
+      }
+    }
+
+    if (newFiles.length > 0) {
+      onFilesAdded(newFiles);
     }
   };
 
@@ -77,23 +129,14 @@ export function FileAttachment({
 
   return (
     <div className="space-y-2">
-      {/* File Input (hidden) */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        className="hidden"
-        onChange={(e) => handleFileSelect(e.target.files)}
-        disabled={disabled}
-      />
-
       {/* Attach Button & Drop Zone */}
       <div
         className={`
           border-2 border-dashed rounded-lg p-3 transition-colors cursor-pointer
-          ${isDragging
-            ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-            : "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500"
+          ${
+            isDragging
+              ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+              : "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500"
           }
           ${disabled ? "opacity-50 cursor-not-allowed" : ""}
         `}
@@ -107,8 +150,7 @@ export function FileAttachment({
           <span>
             {isDragging
               ? "Drop files here..."
-              : "Click to attach files or drag & drop"
-            }
+              : "Click to attach files or drag & drop"}
           </span>
         </div>
       </div>

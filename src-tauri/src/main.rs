@@ -16,6 +16,7 @@ fn main() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(move |app| {
             // Set app handle for event emission
             sidecar_clone.set_app_handle(app.handle().clone());
