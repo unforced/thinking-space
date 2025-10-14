@@ -65,8 +65,31 @@ pub fn list_spaces() -> Result<Vec<Space>, String> {
         for entry in entries.flatten() {
             if entry.path().is_dir() {
                 let metadata_path = entry.path().join(".space-metadata.json");
-                if let Ok(contents) = fs::read_to_string(metadata_path) {
-                    if let Ok(space) = serde_json::from_str::<Space>(&contents) {
+                if let Ok(contents) = fs::read_to_string(&metadata_path) {
+                    if let Ok(mut space) = serde_json::from_str::<Space>(&contents) {
+                        // Migration: Fix old timestamps in seconds (< year 2100 in milliseconds)
+                        // Any timestamp less than 100000000000 is in seconds, not milliseconds
+                        let threshold = 100_000_000_000i64; // Jan 1, 2001 in milliseconds
+
+                        let mut needs_update = false;
+
+                        if space.created_at < threshold {
+                            space.created_at = space.created_at * 1000;
+                            needs_update = true;
+                        }
+
+                        if space.last_accessed_at < threshold {
+                            space.last_accessed_at = space.last_accessed_at * 1000;
+                            needs_update = true;
+                        }
+
+                        // Save the migrated metadata
+                        if needs_update {
+                            if let Ok(metadata_json) = serde_json::to_string_pretty(&space) {
+                                let _ = fs::write(&metadata_path, metadata_json);
+                            }
+                        }
+
                         spaces.push(space);
                     }
                 }
