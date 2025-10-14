@@ -3,6 +3,7 @@
 
 mod auth;
 mod conversations;
+mod settings;
 mod sidecar;
 mod spaces;
 
@@ -41,6 +42,10 @@ fn main() {
             conversations::load_conversation,
             conversations::delete_conversation,
             conversations::list_conversations,
+            settings::load_settings,
+            settings::save_settings,
+            settings::get_data_location,
+            settings::open_data_folder,
             auth::has_claude_code_auth,
             auth::load_claude_credentials,
             auth::load_claude_credentials_file,

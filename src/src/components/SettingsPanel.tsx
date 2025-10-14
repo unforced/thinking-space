@@ -9,7 +9,7 @@ interface SettingsPanelProps {
 }
 
 export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
-  const { apiKey, theme, setApiKey, setTheme, dataLocation } =
+  const { apiKey, theme, setApiKey, setTheme, dataLocation, openDataFolder } =
     useSettingsStore();
   const [localApiKey, setLocalApiKey] = useState(apiKey);
   const [showKey, setShowKey] = useState(false);
@@ -310,14 +310,23 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Data Location
               </label>
-              <div
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                           bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300 font-mono text-sm"
-              >
-                {dataLocation}
+              <div className="flex gap-2">
+                <div
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
+                             bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300 font-mono text-sm"
+                >
+                  {dataLocation}
+                </div>
+                <button
+                  onClick={openDataFolder}
+                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg
+                           transition-colors whitespace-nowrap"
+                >
+                  Open Folder
+                </button>
               </div>
               <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                All your Spaces are stored here
+                All your Spaces and settings are stored here
               </p>
             </div>
           </div>
