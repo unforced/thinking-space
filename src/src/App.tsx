@@ -8,6 +8,7 @@ import { SettingsPanel } from "./components/SettingsPanel";
 import { ArtifactViewer } from "./components/ArtifactViewer";
 import { useSettingsStore } from "./stores/settingsStore";
 import { useSpacesStore } from "./stores/spacesStore";
+import { useChatStore } from "./stores/chatStore";
 
 function App() {
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -16,6 +17,7 @@ function App() {
   const [showArtifacts, setShowArtifacts] = useState(false);
   const { loadSettings } = useSettingsStore();
   const { currentSpace } = useSpacesStore();
+  const { loadMessagesForSpace } = useChatStore();
 
   useEffect(() => {
     loadSettings();
@@ -25,6 +27,13 @@ function App() {
       .then(() => console.log("Agent sidecar started"))
       .catch((error) => console.error("Failed to start agent sidecar:", error));
   }, [loadSettings]);
+
+  // Load conversation when Space changes
+  useEffect(() => {
+    if (currentSpace) {
+      loadMessagesForSpace(currentSpace.id);
+    }
+  }, [currentSpace?.id, loadMessagesForSpace]);
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">

@@ -24,6 +24,11 @@ interface ChatState {
   sendMessage: (content: string, files?: string[]) => Promise<void>;
   clearMessages: () => void;
   addMessage: (message: Message) => void;
+  loadMessagesForSpace: (spaceId: string) => Promise<void>;
+  saveCurrentConversation: (
+    spaceId: string,
+    spaceName: string,
+  ) => Promise<void>;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -151,6 +156,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       get().addMessage(assistantMessage);
       set({ streaming: false, currentStreamingMessage: "" });
+
+      // Save conversation to database
+      await get().saveCurrentConversation(currentSpace.id, currentSpace.name);
     } catch (error) {
       console.error("Failed to send message:", error);
       set({
@@ -169,5 +177,39 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state) => ({
       messages: [...state.messages, message],
     }));
+  },
+
+  loadMessagesForSpace: async (spaceId: string) => {
+    try {
+      console.log("[CHAT STORE] Loading messages for space:", spaceId);
+      const messages = await invoke<Message[]>("load_conversation", {
+        spaceId,
+      });
+      console.log("[CHAT STORE] Loaded", messages.length, "messages");
+      set({ messages, error: null });
+    } catch (error) {
+      console.error("[CHAT STORE] Failed to load messages:", error);
+      set({
+        error: error instanceof Error ? error.message : String(error),
+        messages: [], // Start fresh if load fails
+      });
+    }
+  },
+
+  saveCurrentConversation: async (spaceId: string, spaceName: string) => {
+    try {
+      const messages = get().messages;
+      console.log(
+        "[CHAT STORE] Saving",
+        messages.length,
+        "messages for space:",
+        spaceId,
+      );
+      await invoke("save_conversation", { spaceId, spaceName, messages });
+      console.log("[CHAT STORE] Conversation saved successfully");
+    } catch (error) {
+      console.error("[CHAT STORE] Failed to save conversation:", error);
+      // Don't set error state for save failures - they're not critical to UX
+    }
   },
 }));

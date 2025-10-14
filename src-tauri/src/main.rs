@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod auth;
+mod conversations;
 mod sidecar;
 mod spaces;
 
@@ -36,6 +37,10 @@ fn main() {
             spaces::list_space_files,
             spaces::open_file,
             spaces::read_file_content,
+            conversations::save_conversation,
+            conversations::load_conversation,
+            conversations::delete_conversation,
+            conversations::list_conversations,
             auth::has_claude_code_auth,
             auth::load_claude_credentials,
             auth::load_claude_credentials_file,

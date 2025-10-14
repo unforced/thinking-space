@@ -131,6 +131,10 @@ pub fn delete_space(id: String) -> Result<(), String> {
         fs::remove_dir_all(space_dir).map_err(|e| format!("Failed to delete space: {}", e))?;
     }
 
+    // Also delete the conversation for this space
+    // Note: We don't fail if conversation deletion fails, since the space is already deleted
+    let _ = crate::conversations::delete_conversation(id);
+
     Ok(())
 }
 
