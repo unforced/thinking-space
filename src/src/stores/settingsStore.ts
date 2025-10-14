@@ -4,18 +4,21 @@ import { invoke } from "@tauri-apps/api/core";
 interface Settings {
   api_key: string | null;
   theme: string;
+  has_completed_onboarding: boolean;
 }
 
 interface SettingsState {
   apiKey: string;
   theme: "light" | "dark" | "system";
   dataLocation: string;
+  hasCompletedOnboarding: boolean;
 
   // Actions
   setApiKey: (key: string) => Promise<void>;
   setTheme: (theme: "light" | "dark" | "system") => Promise<void>;
   loadSettings: () => Promise<void>;
   openDataFolder: () => Promise<void>;
+  completeOnboarding: () => Promise<void>;
 }
 
 function applyTheme(theme: "light" | "dark" | "system") {
@@ -34,6 +37,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   apiKey: "",
   theme: "system",
   dataLocation: "~/.thinking-space",
+  hasCompletedOnboarding: false,
 
   setApiKey: async (key: string) => {
     try {
@@ -73,11 +77,13 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
       const theme = (settings.theme || "system") as "light" | "dark" | "system";
       const apiKey = settings.api_key || "";
+      const hasCompletedOnboarding = settings.has_completed_onboarding || false;
 
       set({
         apiKey,
         theme,
         dataLocation,
+        hasCompletedOnboarding,
       });
 
       // Apply theme
@@ -106,6 +112,21 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       await invoke("open_data_folder");
     } catch (error) {
       console.error("Failed to open data folder:", error);
+      throw error;
+    }
+  },
+
+  completeOnboarding: async () => {
+    try {
+      const currentSettings = await invoke<Settings>("load_settings");
+      const newSettings = {
+        ...currentSettings,
+        has_completed_onboarding: true,
+      };
+      await invoke("save_settings", { settings: newSettings });
+      set({ hasCompletedOnboarding: true });
+    } catch (error) {
+      console.error("Failed to save onboarding status:", error);
       throw error;
     }
   },

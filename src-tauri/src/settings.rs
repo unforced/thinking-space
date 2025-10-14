@@ -7,6 +7,8 @@ use std::path::PathBuf;
 pub struct Settings {
     pub api_key: Option<String>,
     pub theme: String, // "light" | "dark" | "system"
+    #[serde(default)]
+    pub has_completed_onboarding: bool,
 }
 
 impl Default for Settings {
@@ -14,6 +16,7 @@ impl Default for Settings {
         Self {
             api_key: None,
             theme: "system".to_string(),
+            has_completed_onboarding: false,
         }
     }
 }
