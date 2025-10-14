@@ -99,8 +99,29 @@ export class AgentService {
         if (block.type === "text") {
           text += block.text;
         } else if (block.type === "tool_use") {
-          // Add visual indicator for tool use
-          text += `\n\n🔧 Using tool: ${block.name}\n`;
+          // Add visual indicator for tool use with input details
+          text += `\n\n🔧 Using tool: **${block.name}**\n`;
+
+          // Show relevant input parameters
+          if (block.input) {
+            if (block.name === "WebSearch" && block.input.query) {
+              text += `   Query: "${block.input.query}"\n`;
+            } else if (block.name === "Read" && block.input.path) {
+              text += `   Reading: ${block.input.path}\n`;
+            } else if (block.name === "Write" && block.input.path) {
+              text += `   Writing to: ${block.input.path}\n`;
+            } else if (block.name === "Bash" && block.input.command) {
+              text += `   Command: \`${block.input.command}\`\n`;
+            } else if (block.name === "Grep" && block.input.pattern) {
+              text += `   Pattern: "${block.input.pattern}"${block.input.path ? ` in ${block.input.path}` : ""}\n`;
+            } else {
+              // For other tools, show the full input (formatted)
+              const inputStr = JSON.stringify(block.input, null, 2);
+              if (inputStr.length < 200) {
+                text += `   Input: ${inputStr}\n`;
+              }
+            }
+          }
         }
       }
       return text;
