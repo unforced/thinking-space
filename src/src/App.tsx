@@ -5,6 +5,7 @@ import { CreateSpaceModal } from "./components/CreateSpaceModal";
 import { ChatArea } from "./components/ChatArea";
 import { ClaudeMdEditor } from "./components/ClaudeMdEditor";
 import { SettingsPanel } from "./components/SettingsPanel";
+import { ArtifactViewer } from "./components/ArtifactViewer";
 import { useSettingsStore } from "./stores/settingsStore";
 import { useSpacesStore } from "./stores/spacesStore";
 
@@ -12,6 +13,7 @@ function App() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showClaudeMdEditor, setShowClaudeMdEditor] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showArtifacts, setShowArtifacts] = useState(false);
   const { loadSettings } = useSettingsStore();
   const { currentSpace } = useSpacesStore();
 
@@ -57,12 +59,18 @@ function App() {
 
         {/* Edit CLAUDE.md */}
         {currentSpace && (
-          <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
             <button
               onClick={() => setShowClaudeMdEditor(true)}
               className="w-full px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-sm transition-colors"
             >
               📝 Edit CLAUDE.md
+            </button>
+            <button
+              onClick={() => setShowArtifacts(true)}
+              className="w-full px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-sm transition-colors"
+            >
+              📁 View Files
             </button>
           </div>
         )}
@@ -94,6 +102,14 @@ function App() {
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
       />
+      {currentSpace && (
+        <ArtifactViewer
+          isOpen={showArtifacts}
+          onClose={() => setShowArtifacts(false)}
+          spaceId={currentSpace.id}
+          spacePath={currentSpace.path}
+        />
+      )}
     </div>
   );
 }

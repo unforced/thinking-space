@@ -8,128 +8,67 @@
 
 ---
 
-## 🎯 Vision
+## 🎯 What is Thinking Space?
 
-Thinking Space bridges the gap between **Claude Desktop's simplicity** and **Claude Code's power**. It's not just a chat interface—it's a **place to think** with AI, inspired by the Extended Mind principles and the method of loci (memory palaces).
+Thinking Space bridges the gap between **Claude Desktop's simplicity** and **Claude Code's power**. It's not just a chat interface—it's a **place to think** with AI.
 
-### The Core Insight
+**Key Concept:** Each "Space" is like a room in your digital memory palace:
 
-People are discovering that Claude Code is more effective than Claude Desktop, even for non-developers. But the CLI interface creates barriers. Thinking Space solves this by:
+- Has its own **context** (via CLAUDE.md)
+- Contains **relevant files** for that type of thinking
+- Gives Claude **persistent memory** about what you're working on
+- Works **locally** with full file access (no size limits)
 
-- Creating **Spaces** - contextual environments for different kinds of thinking
-- Giving each Space **memory** through CLAUDE.md files
-- Providing **local file access** without file size limits
-- Wrapping everything in a **beautiful, approachable UI**
-
-Each Space is like a room in your digital memory palace where Claude understands the context and helps you think.
+Built for non-developers who want AI assistance with local files and context.
 
 ---
 
-## ✨ Features
+## ✨ What's Working Now
 
-### Currently Implemented (MVP)
+### ✅ Core Features (Ready to Use)
 
-✅ **Space Management**
-- Create new Spaces with Quick Start or Custom templates
-- List and switch between Spaces
-- Each Space has its own CLAUDE.md for context
+**Space Management**
 
-✅ **CLAUDE.md Editor**
-- Visual editor for Space context and instructions
-- Edit directly in the app
+- Create Spaces with Quick Start or Custom templates
+- Switch between multiple Spaces in sidebar
+- Each Space has independent context and files
+
+**Claude Agent SDK Integration**
+
+- Real AI conversations powered by Claude Sonnet 4
+- Streaming responses in real-time
+- Tool use indicators (WebSearch, Read, Write, Bash, Grep)
+- Uses Claude Code OAuth or API key
+
+**Chat Interface**
+
+- Markdown rendering with syntax highlighting
+- Code blocks, lists, tables, formatting
+- Conversation history maintained across messages
+- Smooth streaming as Claude responds
+
+**CLAUDE.md Editor**
+
+- Visual Monaco editor for Space context
+- Edit instructions Claude should follow
 - Changes apply immediately to conversations
 
-✅ **Chat Interface**
-- Clean, Claude Desktop-style UI
-- Message history per Space
-- Context-aware conversations
+**File Operations**
 
-✅ **Backend Infrastructure**
-- Rust backend with Tauri 2
-- File system integration (~/.thinking-space/)
-- Secure Space storage and management
+- Drag-and-drop file attachments
+- Files included as context in messages
+- Artifact viewer to browse Space files
+- Click to open files in default app
 
-### Coming Soon (Post-MVP)
+### 🔨 Known Limitations (MVP Phase)
 
-🔲 **Claude Agent SDK Integration**
-- Real AI-powered responses (currently placeholder)
-- Local file operations
-- Full Agent SDK capabilities
+- Conversations don't persist after app restart yet
+- Settings panel incomplete (no theme toggle)
+- No permission dialogs for file access (auto-allows within Space)
+- No welcome screen for first-time users
+- No keyboard shortcuts yet
 
-🔲 **Settings Panel**
-- API key management
-- Theme selection (light/dark)
-- Data location preferences
-
-🔲 **File Operations**
-- Attach files to messages
-- Claude can read/write within Spaces
-- Permission system for external files
-
-🔲 **Enhanced Features**
-- Search across Spaces
-- Session history
-- MCP server integration
-- Usage analytics
-
----
-
-## 🏗️ Architecture
-
-### Tech Stack
-
-**Frontend**
-- React 18 + TypeScript
-- Vite 7 for blazing-fast builds
-- Tailwind CSS v3 for styling
-- Zustand for state management
-
-**Backend**
-- Tauri 2 (Rust + WebView)
-- Native file system access
-- Secure command execution
-- SQLite for metadata (future)
-
-**Agent Integration** (Planned)
-- Claude Agent SDK via Node.js sidecar
-- JSON-RPC communication
-- Full ACP protocol support later
-
-### Project Structure
-
-```
-thinking-space/
-├── dev-docs/              # Vision, architecture, and planning
-│   ├── 00-research-findings.md
-│   ├── 01-vision.md
-│   ├── 02-architecture.md
-│   └── 03-mvp-scope.md
-├── src/                   # React frontend
-│   ├── src/
-│   │   ├── components/    # UI components
-│   │   ├── stores/        # Zustand state management
-│   │   └── App.tsx        # Main application
-│   └── package.json
-├── src-tauri/             # Rust backend
-│   ├── src/
-│   │   ├── main.rs        # Entry point
-│   │   └── spaces.rs      # Space management
-│   └── Cargo.toml
-└── CLAUDE.md              # Project instructions for Claude
-```
-
-### Data Storage
-
-```
-~/.thinking-space/
-└── spaces/
-    ├── {space-id-1}/
-    │   ├── CLAUDE.md
-    │   ├── .space-metadata.json
-    │   └── [user files]
-    └── {space-id-2}/
-        └── ...
-```
+**See full status:** [`docs/STATUS.md`](docs/STATUS.md)
 
 ---
 
@@ -137,9 +76,9 @@ thinking-space/
 
 ### Prerequisites
 
-- **Node.js** (v18 or later)
-- **Rust** (latest stable)
-- **Tauri CLI** (installed via npm)
+- **Node.js** v18 or later
+- **Rust** latest stable
+- **Claude Code OAuth** (recommended) or Anthropic API key
 
 ### Installation
 
@@ -152,124 +91,208 @@ cd thinking-space
 cd src
 npm install
 
-# Run the app in development mode
-cd ..
-npx @tauri-apps/cli dev
+# Run in development mode
+npm run tauri dev
 ```
 
-The app will:
-1. Start the Vite dev server on http://localhost:5173 (or next available port)
-2. Build and launch the Tauri desktop application
-3. Open the Thinking Space window
+The app will build and launch automatically. (First time may take a few minutes to compile Rust code.)
 
 ### First Time Setup
 
-1. **Create your first Space**
-   - Click "+ New Space" in the sidebar
-   - Give it a name (e.g., "Personal Notes")
+**Option A: Use Claude Code OAuth (Recommended)**
+
+1. Install and authenticate with [Claude Code](https://code.anthropic.com)
+2. Launch Thinking Space - it will automatically use your existing auth
+3. Create your first Space and start chatting!
+
+**Option B: Use API Key**
+
+1. Get an API key from [Anthropic Console](https://console.anthropic.com)
+2. Open Settings (⚙️) in Thinking Space
+3. Enter your API key
+4. Create your first Space and start chatting!
+
+### Quick Start Guide
+
+1. **Create a Space**
+   - Click "+ New Space"
+   - Name it (e.g., "Book Research")
    - Choose "Quick Start" template
    - Click "Create Space"
 
-2. **Edit CLAUDE.md**
-   - Click "📝 Edit CLAUDE.md" in the sidebar
-   - Customize the instructions for this Space
-   - Save your changes
+2. **Customize CLAUDE.md**
+   - Click "📝 Edit CLAUDE.md"
+   - Add context about what you're working on
+   - Add any guidelines for Claude
+   - Save
 
-3. **Start thinking!**
-   - Type a message in the chat input
-   - Claude will respond with context from your CLAUDE.md
-   - (Note: Currently shows placeholder responses until Agent SDK is integrated)
+3. **Start Conversing**
+   - Type a message in the chat
+   - Claude will respond with your Space context in mind
+   - Attach files with the paperclip icon or drag-drop
+
+4. **View Space Files**
+   - Click "📁 View Files" to browse your Space directory
+   - Click any file to open in default app
 
 ---
 
 ## 📖 Documentation
 
-### For Users
+### Essential Reading
 
-- See [`dev-docs/01-vision.md`](dev-docs/01-vision.md) for the full vision and philosophy
-- See [`dev-docs/03-mvp-scope.md`](dev-docs/03-mvp-scope.md) for current feature scope
+- **[STATUS.md](docs/STATUS.md)** - Current implementation state, what's built, what's not
+- **[VISION.md](docs/VISION.md)** - Why this exists, design philosophy
+- **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** - How it's built technically
 
-### For Developers
+### Project Structure
 
-- See [`dev-docs/02-architecture.md`](dev-docs/02-architecture.md) for technical details
-- See [`dev-docs/00-research-findings.md`](dev-docs/00-research-findings.md) for background research
-- See [`CLAUDE.md`](CLAUDE.md) for development guidelines
+```
+thinking-space/
+├── docs/                      # Documentation
+│   ├── STATUS.md             # Current state (read this first!)
+│   ├── VISION.md             # Product vision
+│   ├── ARCHITECTURE.md       # Technical architecture
+│   ├── MVP-SCOPE.md          # What we're building for v1
+│   └── archive/              # Historical docs
+├── src/                       # React frontend
+│   ├── src/
+│   │   ├── components/       # UI components
+│   │   ├── stores/           # State management (Zustand)
+│   │   ├── services/         # Agent SDK, auth
+│   │   └── App.tsx
+│   └── package.json
+├── src-tauri/                 # Rust backend
+│   ├── src/
+│   │   ├── main.rs           # Entry point
+│   │   ├── spaces.rs         # Space management
+│   │   ├── auth.rs           # Authentication
+│   │   └── sidecar.rs        # Agent SDK communication
+│   └── sidecar/
+│       └── agent-server.js   # Node.js Agent SDK wrapper
+└── CLAUDE.md                  # Instructions for AI assistants
+```
 
-### Key Concepts
+### Data Storage
 
-**Spaces**: Contextual environments for different types of thinking. Each Space has:
-- A unique name and ID
-- Its own CLAUDE.md file with context and instructions
-- Its own file storage
-- Independent conversation history
+```
+~/.thinking-space/
+└── spaces/
+    ├── {space-id-1}/
+    │   ├── CLAUDE.md              # Context for this Space
+    │   ├── .space-metadata.json   # Created date, etc.
+    │   └── [your files]           # Work files
+    └── {space-id-2}/
+        └── ...
 
-**CLAUDE.md**: The memory file for each Space. Contains:
-- Purpose: What this Space is for
-- Context: Background Claude should know
-- Guidelines: How Claude should behave here
-
-**Templates**: Pre-configured CLAUDE.md structures:
-- **Quick Start**: Basic structure with purpose, context, guidelines
-- **Custom**: Blank slate for advanced users
+~/.config/claude-code/          # OAuth tokens (read-only)
+```
 
 ---
 
-## 🎨 Design Principles
+## 🎨 Key Concepts
 
-1. **Simplicity First** - No steep learning curve, approachable for non-developers
-2. **Spatial Memory** - Leverage human cognitive patterns (method of loci)
-3. **Intentionality Over Chaos** - CLAUDE.md prevents file sprawl
-4. **Local First** - Privacy by design, fast performance
-5. **Flexible, Not Prescriptive** - No forced PARA or GTD methodology
+### Spaces
+
+Contextual environments for different types of thinking. Like rooms in a memory palace:
+
+- **Book Research** - Notes, quotes, outlines
+- **Newsletter Writing** - Drafts, ideas, past issues
+- **Personal Finance** - Statements, budget tracking
+- **Learning Rust** - Code examples, notes, exercises
+
+Each Space is completely independent with its own context and files.
+
+### CLAUDE.md
+
+The "memory" file for each Space. Tells Claude:
+
+- **Purpose** - What this Space is for
+- **Context** - Background information
+- **Guidelines** - How Claude should behave here
+
+This is automatically included in every conversation in that Space.
+
+### Templates
+
+Pre-configured CLAUDE.md structures:
+
+- **Quick Start** - Simple structure (purpose, context, guidelines)
+- **Custom** - Blank slate for power users
 
 ---
 
 ## 🛣️ Roadmap
 
-### Phase 1: Foundation (Current - MVP)
-- ✅ Basic Space management
-- ✅ CLAUDE.md editing
-- ✅ Chat interface
-- ✅ Tauri infrastructure
-- 🔲 Claude Agent SDK integration
+### Current Phase: MVP (85% complete)
 
-### Phase 2: Enhancement
-- File handling and preview
-- Settings panel
-- Search and navigation
-- Template library
+- ✅ Space management
+- ✅ Claude Agent SDK integration
+- ✅ Chat with markdown rendering
+- ✅ File attachments
+- ✅ CLAUDE.md editor
+- 🔨 Conversation persistence
+- 🔨 Settings panel
+- 🔨 Permission system
+
+### Next Phase: Polish & Launch
+
+- Welcome screen / onboarding
+- Keyboard shortcuts
+- Better error handling
+- Performance optimization
+- Packaging for macOS/Windows/Linux
+
+### Future Phases
+
+- Search across Spaces
 - Session history
-
-### Phase 3: Power Features
 - MCP server integration
-- Custom commands/workflows
 - Usage analytics
-- Multi-agent support (via ACP)
+- Templates library
+- Multi-agent support (ACP)
 
-### Phase 4: Ecosystem
-- Sharing and collaboration
-- Cloud sync (optional)
-- Mobile companion app
-- Plugin system
+**See detailed roadmap:** [`docs/MVP-SCOPE.md`](docs/MVP-SCOPE.md)
 
 ---
 
 ## 🤝 Contributing
 
-This is currently in active MVP development. Contributions welcome once we reach a stable release!
+Currently in active MVP development. Contributions welcome!
 
-### Development Workflow
+### Development Commands
 
 ```bash
-# Run in development mode
-npx @tauri-apps/cli dev
+# Run in dev mode (auto-reload)
+npm run tauri dev
 
 # Build for production
-npx @tauri-apps/cli build
+npm run tauri build
 
-# Run tests (when added)
-npm test
+# Build frontend only
+cd src && npm run build
+
+# Check Rust code
+cd src-tauri && cargo check
 ```
+
+### Contribution Ideas
+
+- Test on Windows/Linux (currently Mac-focused)
+- Report bugs or UX issues
+- Suggest features
+- Improve documentation
+- Add keyboard shortcuts
+- Optimize performance
+
+---
+
+## 🙏 Acknowledgments
+
+- **Annie Murphy Paul** - "The Extended Mind" inspired the spatial approach
+- **Anthropic** - Claude and the Agent SDK
+- **Zed** - Agent Client Protocol and authentication patterns
+- Everyone using Claude Code creatively for non-dev tasks
 
 ---
 
@@ -279,19 +302,11 @@ MIT License - see LICENSE file for details
 
 ---
 
-## 🙏 Acknowledgments
+## 📧 Questions?
 
-- **Annie Murphy Paul** for "The Extended Mind" - inspiring the spatial thinking approach
-- **Anthropic** for Claude and the Agent SDK
-- **Zed** and **Google** for pioneering the Agent Client Protocol
-- **Tiago Forte** for PARA (even though we didn't use it directly!)
-- Everyone using Claude Code in creative non-developer ways
-
----
-
-## 📧 Contact
-
-Questions? Feedback? Open an issue or start a discussion!
+- Open an issue for bugs or feature requests
+- Start a discussion for questions
+- Check [`docs/STATUS.md`](docs/STATUS.md) for current state
 
 ---
 

@@ -44,7 +44,45 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     console.log("[CHAT STORE] Current space:", currentSpace);
 
-    // Add user message
+    // Read attached file contents if any
+    let fileContext = "";
+    if (files && files.length > 0) {
+      console.log("[CHAT STORE] Reading", files.length, "attached files...");
+      try {
+        const fileContents = await Promise.all(
+          files.map(async (filePath) => {
+            try {
+              const content = await invoke<string>("read_file_content", {
+                path: filePath,
+              });
+              return { path: filePath, content };
+            } catch (error) {
+              console.error(`Failed to read ${filePath}:`, error);
+              return {
+                path: filePath,
+                content: `[Error reading file: ${error}]`,
+              };
+            }
+          }),
+        );
+
+        // Format file context like Zed does
+        fileContext = fileContents
+          .map(({ path, content }) => {
+            return `<file path="${path}">\n${content}\n</file>`;
+          })
+          .join("\n\n");
+
+        console.log(
+          "[CHAT STORE] File context prepared, length:",
+          fileContext.length,
+        );
+      } catch (error) {
+        console.error("[CHAT STORE] Error reading file attachments:", error);
+      }
+    }
+
+    // Add user message (display content only, not file context)
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: "user",
@@ -79,6 +117,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
           content: msg.content,
         }));
 
+      // Prepare the actual message to send to the model
+      // Include file context before the user's message
+      const messageWithContext = fileContext
+        ? `${fileContext}\n\n${content}`
+        : content;
+
       // Stream from agent (auth handled automatically by agentService)
       console.log("[CHAT STORE] Calling agentService.sendMessage...");
       console.log(
@@ -86,7 +130,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         conversationHistory.length,
         "messages",
       );
-      for await (const chunk of agentService.sendMessage(content, {
+      for await (const chunk of agentService.sendMessage(messageWithContext, {
         spaceId: currentSpace.id,
         spacePath: currentSpace.path,
         claudeMdContent,

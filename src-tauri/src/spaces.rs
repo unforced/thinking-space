@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
+use std::time::SystemTime;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -168,4 +169,72 @@ pub fn write_claude_md(space_id: String, content: String) -> Result<(), String> 
     let claude_md_path = spaces_dir.join(&space_id).join("CLAUDE.md");
 
     fs::write(claude_md_path, content).map_err(|e| format!("Failed to write CLAUDE.md: {}", e))
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SpaceFile {
+    pub name: String,
+    pub path: String,
+    pub size: u64,
+    pub modified: i64,
+    pub is_directory: bool,
+}
+
+#[tauri::command]
+pub fn list_space_files(space_id: String) -> Result<Vec<SpaceFile>, String> {
+    let spaces_dir = get_spaces_dir()?;
+    let space_dir = spaces_dir.join(&space_id);
+
+    if !space_dir.exists() {
+        return Err("Space directory not found".to_string());
+    }
+
+    let mut files = Vec::new();
+
+    if let Ok(entries) = fs::read_dir(&space_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+
+            // Skip hidden files and metadata
+            let file_name = entry.file_name().to_string_lossy().to_string();
+            if file_name.starts_with('.') {
+                continue;
+            }
+
+            if let Ok(metadata) = entry.metadata() {
+                let modified = metadata
+                    .modified()
+                    .ok()
+                    .and_then(|time| {
+                        time.duration_since(SystemTime::UNIX_EPOCH)
+                            .ok()
+                            .map(|d| d.as_millis() as i64)
+                    })
+                    .unwrap_or(0);
+
+                files.push(SpaceFile {
+                    name: file_name,
+                    path: path.to_string_lossy().to_string(),
+                    size: metadata.len(),
+                    modified,
+                    is_directory: metadata.is_dir(),
+                });
+            }
+        }
+    }
+
+    // Sort by name
+    files.sort_by(|a, b| a.name.cmp(&b.name));
+
+    Ok(files)
+}
+
+#[tauri::command]
+pub fn open_file(path: String) -> Result<(), String> {
+    opener::open(&path).map_err(|e| format!("Failed to open file: {}", e))
+}
+
+#[tauri::command]
+pub fn read_file_content(path: String) -> Result<String, String> {
+    fs::read_to_string(&path).map_err(|e| format!("Failed to read file: {}", e))
 }

@@ -24,8 +24,11 @@ export function ChatArea() {
     e.preventDefault();
     if (!input.trim() || streaming || !currentSpace) return;
 
-    // TODO: Pass attachedFiles to sendMessage when implementing file operations
-    await sendMessage(input.trim());
+    // Pass file paths to sendMessage
+    const filePaths =
+      attachedFiles.length > 0 ? attachedFiles.map((f) => f.path) : undefined;
+
+    await sendMessage(input.trim(), filePaths);
     setInput("");
     setAttachedFiles([]); // Clear attachments after sending
   };
