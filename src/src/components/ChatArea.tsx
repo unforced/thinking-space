@@ -4,10 +4,13 @@ import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import { useChatStore } from "../stores/chatStore";
 import { useSpacesStore } from "../stores/spacesStore";
+import { FileAttachment } from "./FileAttachment";
+import type { AttachedFile } from "./FileAttachment";
 import "highlight.js/styles/github-dark.css";
 
 export function ChatArea() {
   const [input, setInput] = useState("");
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const { messages, streaming, sendMessage, currentStreamingMessage, error } =
     useChatStore();
   const { currentSpace } = useSpacesStore();
@@ -21,8 +24,18 @@ export function ChatArea() {
     e.preventDefault();
     if (!input.trim() || streaming || !currentSpace) return;
 
+    // TODO: Pass attachedFiles to sendMessage when implementing file operations
     await sendMessage(input.trim());
     setInput("");
+    setAttachedFiles([]); // Clear attachments after sending
+  };
+
+  const handleFilesAdded = (newFiles: AttachedFile[]) => {
+    setAttachedFiles((prev) => [...prev, ...newFiles]);
+  };
+
+  const handleFileRemoved = (index: number) => {
+    setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   if (!currentSpace) {
@@ -155,7 +168,16 @@ export function ChatArea() {
 
       {/* Input */}
       <div className="p-6 border-t border-gray-200 dark:border-gray-700">
-        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
+        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto space-y-3">
+          {/* File Attachment Area */}
+          <FileAttachment
+            files={attachedFiles}
+            onFilesAdded={handleFilesAdded}
+            onFileRemoved={handleFileRemoved}
+            disabled={streaming}
+          />
+
+          {/* Message Input */}
           <div className="flex gap-2">
             <textarea
               value={input}
