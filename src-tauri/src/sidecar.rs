@@ -31,7 +31,7 @@ pub struct SidecarManager {
     process: Arc<Mutex<Option<Child>>>,
     acp_client: Arc<Mutex<Option<AcpClient>>>,
     app_handle: Arc<Mutex<Option<AppHandle>>>,
-    session_active: Arc<Mutex<bool>>,
+    session_id: Arc<Mutex<Option<String>>>,
 }
 
 impl SidecarManager {
@@ -40,7 +40,7 @@ impl SidecarManager {
             process: Arc::new(Mutex::new(None)),
             acp_client: Arc::new(Mutex::new(None)),
             app_handle: Arc::new(Mutex::new(None)),
-            session_active: Arc::new(Mutex::new(false)),
+            session_id: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -161,7 +161,7 @@ impl SidecarManager {
         }
 
         *self.acp_client.lock() = None;
-        *self.session_active.lock() = false;
+        *self.session_id.lock() = None;
 
         Ok(())
     }
@@ -170,12 +170,12 @@ impl SidecarManager {
         self.acp_client.lock().clone()
     }
 
-    pub fn is_session_active(&self) -> bool {
-        *self.session_active.lock()
+    pub fn get_session_id(&self) -> Option<String> {
+        self.session_id.lock().clone()
     }
 
-    pub fn set_session_active(&self, active: bool) {
-        *self.session_active.lock() = active;
+    pub fn set_session_id(&self, id: Option<String>) {
+        *self.session_id.lock() = id;
     }
 }
 
@@ -218,8 +218,10 @@ pub fn agent_send_message(
 
     let client = state.get_acp_client().ok_or("ACP client not initialized")?;
 
-    // If no session is active, create one
-    if !state.is_session_active() {
+    // Get or create session
+    let session_id = if let Some(id) = state.get_session_id() {
+        id
+    } else {
         println!("[SIDECAR CMD] Creating new ACP session...");
 
         // Build system prompt with conversation history if provided
@@ -247,16 +249,31 @@ pub fn agent_send_message(
             client.new_session(params.working_directory.clone(), Some(full_system_prompt))?;
 
         println!("[SIDECAR CMD] Session created: {:?}", response);
-        state.set_session_active(true);
-    }
+
+        // Extract session ID from response
+        let session_id = response
+            .result
+            .as_ref()
+            .and_then(|r| r.get("sessionId"))
+            .and_then(|s| s.as_str())
+            .ok_or("No sessionId in response")?
+            .to_string();
+
+        println!("[SIDECAR CMD] Session ID: {}", session_id);
+        state.set_session_id(Some(session_id.clone()));
+        session_id
+    };
 
     // Send the prompt
     println!("[SIDECAR CMD] Sending prompt via ACP...");
 
-    // Build context array (for now, empty - will add file context later)
-    let context: Vec<serde_json::Value> = vec![];
+    // Format prompt as ACP expects: array of chunks
+    let prompt_chunks = vec![serde_json::json!({
+        "type": "text",
+        "text": params.message
+    })];
 
-    let response = client.send_prompt(params.message.clone(), context)?;
+    let response = client.send_prompt(session_id, prompt_chunks)?;
     println!("[SIDECAR CMD] Prompt sent: {:?}", response);
 
     Ok(())

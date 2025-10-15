@@ -80,10 +80,13 @@ impl AcpClient {
     ) -> Result<AcpMessage, String> {
         println!("[ACP CLIENT] Creating new session...");
 
+        // Build params according to ACP spec
         let mut params = serde_json::json!({
-            "workingDirectory": working_dir
+            "cwd": working_dir,
+            "mcpServers": []  // Required by ACP - empty array is fine
         });
 
+        // System prompt is optional - if not provided, adapter uses Claude Code preset
         if let Some(prompt) = system_prompt {
             params["systemPrompt"] = serde_json::Value::String(prompt);
         }
@@ -104,21 +107,18 @@ impl AcpClient {
     /// Send a prompt to the current session
     pub fn send_prompt(
         &self,
-        message: String,
-        context: Vec<serde_json::Value>,
+        session_id: String,
+        prompt: Vec<serde_json::Value>,
     ) -> Result<AcpMessage, String> {
-        println!(
-            "[ACP CLIENT] Sending prompt: {}...",
-            &message[..message.len().min(50)]
-        );
+        println!("[ACP CLIENT] Sending prompt to session {}...", session_id);
 
         let request = AcpMessage {
             jsonrpc: "2.0".to_string(),
             id: Some(self.get_next_id()),
             method: Some("session/prompt".to_string()),
             params: Some(serde_json::json!({
-                "message": message,
-                "context": context
+                "sessionId": session_id,
+                "prompt": prompt
             })),
             result: None,
             error: None,
