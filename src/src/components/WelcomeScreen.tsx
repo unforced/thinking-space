@@ -86,9 +86,9 @@ export function WelcomeScreen({ isOpen, onComplete }: WelcomeScreenProps) {
                 Welcome to Thinking Space
               </h1>
               <p className="text-lg text-gray-600 dark:text-gray-300 max-w-md mx-auto">
-                Your intelligent workspace for focused conversations with Claude.
-                Organize your work into dedicated Spaces, each with its own
-                context and history.
+                Your intelligent workspace for focused conversations with
+                Claude. Organize your work into dedicated Spaces, each with its
+                own context and history.
               </p>
             </div>
 
@@ -276,16 +276,26 @@ export function WelcomeScreen({ isOpen, onComplete }: WelcomeScreenProps) {
                         </code>
                       </li>
                       <li>Complete browser authentication</li>
-                      <li>Restart Thinking Space</li>
+                      <li>
+                        Click "Check Again" below or restart Thinking Space
+                      </li>
                     </ol>
                   </div>
 
-                  <button
-                    onClick={handleOpenClaudeCodeDocs}
-                    className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors"
-                  >
-                    View Setup Instructions
-                  </button>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={checkAuth}
+                      className="flex-1 px-4 py-2 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-purple-600 dark:text-purple-400 border-2 border-purple-600 dark:border-purple-400 rounded-lg font-medium transition-colors"
+                    >
+                      Check Again
+                    </button>
+                    <button
+                      onClick={handleOpenClaudeCodeDocs}
+                      className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors"
+                    >
+                      View Setup Instructions
+                    </button>
+                  </div>
                 </div>
 
                 {/* Option 2: API Key */}

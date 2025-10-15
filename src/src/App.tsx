@@ -29,18 +29,12 @@ function App() {
 
   useEffect(() => {
     loadSettings();
-  }, [loadSettings]);
 
-  // Start sidecar when API key is available
-  useEffect(() => {
-    if (apiKey) {
-      invoke("agent_start_sidecar", { apiKey })
-        .then(() => console.log("Agent sidecar started"))
-        .catch((error) =>
-          console.error("Failed to start agent sidecar:", error),
-        );
-    }
-  }, [apiKey]);
+    // Start sidecar - works with both Claude.ai login (~/.claude.json) or API key
+    invoke("agent_start_sidecar", { apiKey: apiKey || null })
+      .then(() => console.log("Agent sidecar started"))
+      .catch((error) => console.error("Failed to start agent sidecar:", error));
+  }, [loadSettings, apiKey]);
 
   // Load conversation when Space changes
   useEffect(() => {
