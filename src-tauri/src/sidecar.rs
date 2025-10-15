@@ -224,9 +224,17 @@ impl SidecarManager {
                             }
                         } else {
                             // Not a session/update, pass through
+                            // But translate id from ACP's prompt request id to frontend's request_id
+                            let translated_id = if msg.id.is_some() && request_id.is_some() {
+                                // This is a response (has id), translate it to frontend's request_id
+                                request_id
+                            } else {
+                                msg.id
+                            };
+
                             JsonRpcResponse {
                                 jsonrpc: msg.jsonrpc.clone(),
-                                id: msg.id,
+                                id: translated_id,
                                 result: msg.result,
                                 error: msg.error.map(|e| JsonRpcError {
                                     code: e.code,
