@@ -4119,6 +4119,7 @@ dependencies = [
  "chrono",
  "dirs 5.0.1",
  "opener",
+ "parking_lot",
  "rusqlite",
  "security-framework",
  "serde",

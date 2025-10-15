@@ -9,7 +9,15 @@
     "tauri:dev": "cd src && npm run tauri dev",
     "tauri:build": "cd src && npm run tauri build"
   },
-  "keywords": ["tauri", "claude", "ai", "second-brain"],
+  "keywords": [
+    "tauri",
+    "claude",
+    "ai",
+    "second-brain"
+  ],
   "author": "Thinking Space Team",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@zed-industries/claude-code-acp": "^0.5.5"
+  }
 }
