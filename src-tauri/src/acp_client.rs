@@ -105,11 +105,13 @@ impl AcpClient {
     }
 
     /// Send a prompt to the current session
+    /// Note: This doesn't wait for a response because prompts stream via notifications
+    /// The final response comes eventually, but intermediate results arrive as session/update notifications
     pub fn send_prompt(
         &self,
         session_id: String,
         prompt: Vec<serde_json::Value>,
-    ) -> Result<AcpMessage, String> {
+    ) -> Result<(), String> {
         println!("[ACP CLIENT] Sending prompt to session {}...", session_id);
 
         let request = AcpMessage {
@@ -125,7 +127,8 @@ impl AcpClient {
         };
 
         self.send_request(&request)?;
-        self.read_response()
+        // Don't wait for response - it streams via notifications
+        Ok(())
     }
 
     /// Approve a tool permission request
@@ -224,10 +227,17 @@ impl AcpClient {
     }
 
     /// Read a response (blocking until message arrives)
+    /// Skips notifications (messages with id: None) and only returns responses
     fn read_response(&self) -> Result<AcpMessage, String> {
         loop {
             if let Some(msg) = self.read_message()? {
-                return Ok(msg);
+                // Skip notifications (id: None, method: Some(...))
+                // We only want responses (id: Some(...))
+                if msg.id.is_some() {
+                    return Ok(msg);
+                } else {
+                    println!("[ACP CLIENT] Skipping notification: {:?}", msg.method);
+                }
             }
             // Small sleep to avoid busy waiting
             std::thread::sleep(std::time::Duration::from_millis(10));

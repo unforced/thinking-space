@@ -32,6 +32,7 @@ pub struct SidecarManager {
     acp_client: Arc<Mutex<Option<AcpClient>>>,
     app_handle: Arc<Mutex<Option<AppHandle>>>,
     session_id: Arc<Mutex<Option<String>>>,
+    message_thread_started: Arc<Mutex<bool>>,
 }
 
 impl SidecarManager {
@@ -41,6 +42,7 @@ impl SidecarManager {
             acp_client: Arc::new(Mutex::new(None)),
             app_handle: Arc::new(Mutex::new(None)),
             session_id: Arc::new(Mutex::new(None)),
+            message_thread_started: Arc::new(Mutex::new(false)),
         }
     }
 
@@ -100,17 +102,56 @@ impl SidecarManager {
         }
 
         // Store client
-        let client_arc = Arc::new(acp_client);
-        *self.acp_client.lock() = Some((*client_arc).clone());
+        *self.acp_client.lock() = Some(acp_client);
 
-        // Spawn thread to read messages from ACP adapter
+        *process_lock = Some(child);
+        println!("[SIDECAR] ACP adapter started successfully");
+        Ok(())
+    }
+
+    pub fn stop(&self) -> Result<(), String> {
+        let mut process_lock = self.process.lock();
+
+        if let Some(mut child) = process_lock.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+
+        *self.acp_client.lock() = None;
+        *self.session_id.lock() = None;
+
+        Ok(())
+    }
+
+    pub fn get_acp_client(&self) -> Option<AcpClient> {
+        self.acp_client.lock().clone()
+    }
+
+    pub fn get_session_id(&self) -> Option<String> {
+        self.session_id.lock().clone()
+    }
+
+    pub fn set_session_id(&self, id: Option<String>) {
+        *self.session_id.lock() = id;
+    }
+
+    pub fn start_message_thread(&self) {
+        let mut started = self.message_thread_started.lock();
+        if *started {
+            return; // Already started
+        }
+
+        let client = match self.get_acp_client() {
+            Some(c) => c,
+            None => return,
+        };
+
         let app_handle = self.app_handle.lock().clone();
-        let client_for_thread = client_arc.clone();
 
         thread::spawn(move || {
             println!("[SIDECAR] Message reading thread started");
             loop {
-                match client_for_thread.read_message() {
+                match client.read_message() {
                     Ok(Some(msg)) => {
                         println!("[SIDECAR] Received ACP message: {:?}", msg);
 
@@ -147,35 +188,7 @@ impl SidecarManager {
             println!("[SIDECAR] Message reading thread ended");
         });
 
-        *process_lock = Some(child);
-        println!("[SIDECAR] ACP adapter started successfully");
-        Ok(())
-    }
-
-    pub fn stop(&self) -> Result<(), String> {
-        let mut process_lock = self.process.lock();
-
-        if let Some(mut child) = process_lock.take() {
-            let _ = child.kill();
-            let _ = child.wait();
-        }
-
-        *self.acp_client.lock() = None;
-        *self.session_id.lock() = None;
-
-        Ok(())
-    }
-
-    pub fn get_acp_client(&self) -> Option<AcpClient> {
-        self.acp_client.lock().clone()
-    }
-
-    pub fn get_session_id(&self) -> Option<String> {
-        self.session_id.lock().clone()
-    }
-
-    pub fn set_session_id(&self, id: Option<String>) {
-        *self.session_id.lock() = id;
+        *started = true;
     }
 }
 
@@ -248,7 +261,15 @@ pub fn agent_send_message(
         let response =
             client.new_session(params.working_directory.clone(), Some(full_system_prompt))?;
 
-        println!("[SIDECAR CMD] Session created: {:?}", response);
+        println!("[SIDECAR CMD] Session created response: {:?}", response);
+
+        // Debug: print the full result structure
+        if let Some(ref result) = response.result {
+            println!(
+                "[SIDECAR CMD] Result keys: {:?}",
+                result.as_object().map(|o| o.keys().collect::<Vec<_>>())
+            );
+        }
 
         // Extract session ID from response
         let session_id = response
@@ -256,11 +277,16 @@ pub fn agent_send_message(
             .as_ref()
             .and_then(|r| r.get("sessionId"))
             .and_then(|s| s.as_str())
-            .ok_or("No sessionId in response")?
+            .ok_or_else(|| format!("No sessionId in response. Full response: {:?}", response))?
             .to_string();
 
         println!("[SIDECAR CMD] Session ID: {}", session_id);
         state.set_session_id(Some(session_id.clone()));
+
+        // Now that session is created, start the message reading thread
+        // to handle streaming responses
+        state.start_message_thread();
+
         session_id
     };
 
@@ -273,8 +299,8 @@ pub fn agent_send_message(
         "text": params.message
     })];
 
-    let response = client.send_prompt(session_id, prompt_chunks)?;
-    println!("[SIDECAR CMD] Prompt sent: {:?}", response);
+    client.send_prompt(session_id, prompt_chunks)?;
+    println!("[SIDECAR CMD] Prompt sent, responses will arrive as notifications");
 
     Ok(())
 }
