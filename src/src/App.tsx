@@ -16,7 +16,7 @@ function App() {
   const [showClaudeMdEditor, setShowClaudeMdEditor] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showArtifacts, setShowArtifacts] = useState(false);
-  const { loadSettings, hasCompletedOnboarding, completeOnboarding } =
+  const { loadSettings, hasCompletedOnboarding, completeOnboarding, apiKey } =
     useSettingsStore();
   const { currentSpace } = useSpacesStore();
   const { loadMessagesForSpace } = useChatStore();
@@ -29,12 +29,18 @@ function App() {
 
   useEffect(() => {
     loadSettings();
-
-    // Start the agent sidecar
-    invoke("agent_start_sidecar")
-      .then(() => console.log("Agent sidecar started"))
-      .catch((error) => console.error("Failed to start agent sidecar:", error));
   }, [loadSettings]);
+
+  // Start sidecar when API key is available
+  useEffect(() => {
+    if (apiKey) {
+      invoke("agent_start_sidecar", { apiKey })
+        .then(() => console.log("Agent sidecar started"))
+        .catch((error) =>
+          console.error("Failed to start agent sidecar:", error),
+        );
+    }
+  }, [apiKey]);
 
   // Load conversation when Space changes
   useEffect(() => {

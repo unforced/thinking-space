@@ -28,6 +28,7 @@ pub struct AcpError {
 }
 
 /// ACP Client for communicating with ACP-compatible agents
+#[derive(Clone)]
 pub struct AcpClient {
     stdin: Arc<Mutex<ChildStdin>>,
     stdout: Arc<Mutex<BufReader<ChildStdout>>>,
@@ -53,12 +54,12 @@ impl AcpClient {
             id: Some(self.get_next_id()),
             method: Some("initialize".to_string()),
             params: Some(serde_json::json!({
-                "protocolVersion": "1.0",
+                "protocolVersion": 1,
                 "clientInfo": {
                     "name": "Thinking Space",
                     "version": "0.1.0"
                 },
-                "capabilities": {
+                "clientCapabilities": {
                     "tools": true,
                     "streaming": true
                 }

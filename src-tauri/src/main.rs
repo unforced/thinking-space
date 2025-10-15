@@ -22,10 +22,8 @@ fn main() {
             // Set app handle for event emission
             sidecar_clone.set_app_handle(app.handle().clone());
 
-            // Start sidecar process
-            sidecar_clone
-                .start()
-                .expect("Failed to start sidecar process");
+            // Don't start sidecar at startup - wait for API key from frontend
+            // The frontend will call agent_start_sidecar with the API key
 
             Ok(())
         })

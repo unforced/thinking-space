@@ -1,31 +1,24 @@
+use crate::acp_client::AcpClient;
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
-use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, Command, Stdio};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::thread;
 use tauri::{AppHandle, Emitter};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct JsonRpcRequest {
-    jsonrpc: String,
-    id: u64,
-    method: String,
-    params: serde_json::Value,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct JsonRpcResponse {
-    jsonrpc: String,
+    pub jsonrpc: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    id: Option<u64>,
+    pub id: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    result: Option<serde_json::Value>,
+    pub result: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    error: Option<JsonRpcError>,
+    pub error: Option<JsonRpcError>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    method: Option<String>,
+    pub method: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    params: Option<serde_json::Value>,
+    pub params: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -36,150 +29,153 @@ pub struct JsonRpcError {
 
 pub struct SidecarManager {
     process: Arc<Mutex<Option<Child>>>,
+    acp_client: Arc<Mutex<Option<AcpClient>>>,
     app_handle: Arc<Mutex<Option<AppHandle>>>,
+    session_active: Arc<Mutex<bool>>,
 }
 
 impl SidecarManager {
     pub fn new() -> Self {
         SidecarManager {
             process: Arc::new(Mutex::new(None)),
+            acp_client: Arc::new(Mutex::new(None)),
             app_handle: Arc::new(Mutex::new(None)),
+            session_active: Arc::new(Mutex::new(false)),
         }
     }
 
     pub fn set_app_handle(&self, handle: AppHandle) {
-        let mut app_handle = self.app_handle.lock().unwrap();
-        *app_handle = Some(handle);
+        *self.app_handle.lock() = Some(handle);
     }
 
-    pub fn start(&self) -> Result<(), String> {
-        let mut process_lock = self.process.lock().unwrap();
+    pub fn start(&self, api_key: Option<String>) -> Result<(), String> {
+        let mut process_lock = self.process.lock();
 
         if process_lock.is_some() {
             return Ok(()); // Already running
         }
 
-        // Get the sidecar path
-        let sidecar_path = self.get_sidecar_path()?;
+        println!("[SIDECAR] Starting ACP adapter...");
 
-        // Start Node.js process
-        let mut child = Command::new("node")
-            .arg(&sidecar_path)
+        // Find npx command
+        let npx_cmd = if cfg!(target_os = "windows") {
+            "npx.cmd"
+        } else {
+            "npx"
+        };
+
+        // Get API key from parameter or environment
+        let api_key_value = api_key
+            .or_else(|| std::env::var("ANTHROPIC_API_KEY").ok())
+            .unwrap_or_default();
+
+        // Start ACP adapter process
+        let mut child = Command::new(npx_cmd)
+            .arg("@zed-industries/claude-code-acp")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit())
+            .env("ANTHROPIC_API_KEY", api_key_value)
             .spawn()
-            .map_err(|e| format!("Failed to start sidecar: {}", e))?;
+            .map_err(|e| format!("Failed to start ACP adapter: {}\nMake sure you've run: cd src-tauri && npm install @zed-industries/claude-code-acp", e))?;
 
-        // Spawn thread to read stdout and emit events
+        println!("[SIDECAR] ACP adapter process spawned");
+
+        // Get stdin/stdout
+        let stdin = child.stdin.take().ok_or("Failed to capture stdin")?;
         let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
 
-        let app_handle = self.app_handle.lock().unwrap().clone();
+        // Create ACP client
+        let acp_client = AcpClient::new(stdin, stdout);
+
+        // Initialize ACP connection
+        println!("[SIDECAR] Initializing ACP connection...");
+        match acp_client.initialize() {
+            Ok(response) => {
+                println!("[SIDECAR] ACP initialized: {:?}", response);
+            }
+            Err(e) => {
+                return Err(format!("Failed to initialize ACP: {}", e));
+            }
+        }
+
+        // Store client
+        let client_arc = Arc::new(acp_client);
+        *self.acp_client.lock() = Some((*client_arc).clone());
+
+        // Spawn thread to read messages from ACP adapter
+        let app_handle = self.app_handle.lock().clone();
+        let client_for_thread = client_arc.clone();
+
         thread::spawn(move || {
-            let reader = BufReader::new(stdout);
-            for line in reader.lines() {
-                if let Ok(line) = line {
-                    eprintln!(
-                        "[RUST RECEIVED] {} chars: {}",
-                        line.len(),
-                        &line[..line.len().min(100)]
-                    );
-                    match serde_json::from_str::<JsonRpcResponse>(&line) {
-                        Ok(response) => {
-                            eprintln!(
-                                "[RUST PARSED] method={:?} id={:?}",
-                                response.method, response.id
-                            );
-                            // Emit event to frontend
-                            if let Some(ref handle) = app_handle {
-                                if let Err(e) = handle.emit("sidecar-message", response) {
-                                    eprintln!("[RUST EMIT ERROR] {}", e);
-                                }
+            println!("[SIDECAR] Message reading thread started");
+            loop {
+                match client_for_thread.read_message() {
+                    Ok(Some(msg)) => {
+                        println!("[SIDECAR] Received ACP message: {:?}", msg);
+
+                        // Convert ACP message to our JsonRpcResponse format for frontend
+                        let response = JsonRpcResponse {
+                            jsonrpc: msg.jsonrpc.clone(),
+                            id: msg.id,
+                            result: msg.result,
+                            error: msg.error.map(|e| JsonRpcError {
+                                code: e.code,
+                                message: e.message,
+                            }),
+                            method: msg.method,
+                            params: msg.params,
+                        };
+
+                        // Emit to frontend
+                        if let Some(ref handle) = app_handle {
+                            if let Err(e) = handle.emit("sidecar-message", response) {
+                                eprintln!("[SIDECAR] Failed to emit message: {}", e);
                             }
                         }
-                        Err(e) => {
-                            eprintln!("[RUST PARSE ERROR] {}", e);
-                        }
+                    }
+                    Ok(None) => {
+                        // No message available, continue
+                        std::thread::sleep(std::time::Duration::from_millis(10));
+                    }
+                    Err(e) => {
+                        eprintln!("[SIDECAR] Error reading message: {}", e);
+                        break;
                     }
                 }
             }
-            eprintln!("[RUST] Stdout reading thread ended");
+            println!("[SIDECAR] Message reading thread ended");
         });
 
         *process_lock = Some(child);
+        println!("[SIDECAR] ACP adapter started successfully");
         Ok(())
     }
 
     pub fn stop(&self) -> Result<(), String> {
-        let mut process_lock = self.process.lock().unwrap();
+        let mut process_lock = self.process.lock();
 
         if let Some(mut child) = process_lock.take() {
             let _ = child.kill();
             let _ = child.wait();
         }
 
-        Ok(())
-    }
-
-    pub fn send_request(
-        &self,
-        method: &str,
-        params: serde_json::Value,
-        id: u64,
-    ) -> Result<(), String> {
-        let request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
-            id,
-            method: method.to_string(),
-            params,
-        };
-
-        let request_json = serde_json::to_string(&request)
-            .map_err(|e| format!("Failed to serialize request: {}", e))?;
-
-        let mut process_lock = self.process.lock().unwrap();
-        let process = process_lock.as_mut().ok_or("Sidecar not running")?;
-
-        // Send request
-        let stdin = process.stdin.as_mut().ok_or("No stdin")?;
-        writeln!(stdin, "{}", request_json)
-            .map_err(|e| format!("Failed to write to sidecar: {}", e))?;
-        stdin
-            .flush()
-            .map_err(|e| format!("Failed to flush stdin: {}", e))?;
+        *self.acp_client.lock() = None;
+        *self.session_active.lock() = false;
 
         Ok(())
     }
 
-    fn get_sidecar_path(&self) -> Result<String, String> {
-        // In development, try multiple possible paths
-        let current_dir =
-            std::env::current_dir().map_err(|e| format!("Failed to get current dir: {}", e))?;
+    pub fn get_acp_client(&self) -> Option<AcpClient> {
+        self.acp_client.lock().clone()
+    }
 
-        let mut possible_paths = vec![
-            current_dir.join("src-tauri/sidecar/agent-server.js"),
-            current_dir.join("sidecar/agent-server.js"),
-        ];
+    pub fn is_session_active(&self) -> bool {
+        *self.session_active.lock()
+    }
 
-        // Add parent directory path if it exists
-        if let Some(parent) = current_dir.parent() {
-            possible_paths.push(parent.join("src-tauri/sidecar/agent-server.js"));
-        }
-
-        for path in &possible_paths {
-            if path.exists() {
-                return Ok(path.to_string_lossy().to_string());
-            }
-        }
-
-        Err(format!(
-            "Sidecar not found. Searched in:\n{}\nCurrent dir: {:?}\nMake sure to run: cd src-tauri/sidecar && npm install",
-            possible_paths.iter()
-                .map(|p| format!("  - {:?}", p))
-                .collect::<Vec<_>>()
-                .join("\n"),
-            current_dir
-        ))
+    pub fn set_session_active(&self, active: bool) {
+        *self.session_active.lock() = active;
     }
 }
 
@@ -215,35 +211,63 @@ pub fn agent_send_message(
     state: tauri::State<'_, Arc<SidecarManager>>,
     params: SendMessageParams,
 ) -> Result<(), String> {
-    eprintln!(
-        "[RUST] agent_send_message called with request_id={}",
+    println!(
+        "[SIDECAR CMD] agent_send_message called with request_id={}",
         params.request_id
     );
 
-    let request_params = serde_json::json!({
-        "sessionId": format!("session-{}", params.request_id),
-        "message": params.message,
-        "apiKey": params.api_key,
-        "workingDirectory": params.working_directory,
-        "systemPrompt": params.system_prompt,
-        "model": params.model,
-        "allowedTools": params.allowed_tools,
-        "maxTurns": params.max_turns,
-        "conversationHistory": params.conversation_history,
-    });
+    let client = state.get_acp_client().ok_or("ACP client not initialized")?;
 
-    eprintln!(
-        "[RUST] Sending request to sidecar: {}",
-        serde_json::to_string(&request_params).unwrap_or_default()
-    );
-    state.send_request("sendMessage", request_params, params.request_id)?;
-    eprintln!("[RUST] Request sent successfully");
+    // If no session is active, create one
+    if !state.is_session_active() {
+        println!("[SIDECAR CMD] Creating new ACP session...");
+
+        // Build system prompt with conversation history if provided
+        let mut full_system_prompt = params.system_prompt.clone().unwrap_or_default();
+
+        if let Some(history) = &params.conversation_history {
+            if !history.is_empty() {
+                full_system_prompt.push_str("\n\n# Previous Conversation:\n");
+                for msg in history {
+                    full_system_prompt.push_str(&format!(
+                        "\n{}: {}\n",
+                        if msg.role == "user" {
+                            "User"
+                        } else {
+                            "Assistant"
+                        },
+                        msg.content
+                    ));
+                }
+                full_system_prompt.push_str("\n# Current Request:\n");
+            }
+        }
+
+        let response =
+            client.new_session(params.working_directory.clone(), Some(full_system_prompt))?;
+
+        println!("[SIDECAR CMD] Session created: {:?}", response);
+        state.set_session_active(true);
+    }
+
+    // Send the prompt
+    println!("[SIDECAR CMD] Sending prompt via ACP...");
+
+    // Build context array (for now, empty - will add file context later)
+    let context: Vec<serde_json::Value> = vec![];
+
+    let response = client.send_prompt(params.message.clone(), context)?;
+    println!("[SIDECAR CMD] Prompt sent: {:?}", response);
+
     Ok(())
 }
 
 #[tauri::command]
-pub fn agent_start_sidecar(state: tauri::State<'_, Arc<SidecarManager>>) -> Result<(), String> {
-    state.start()
+pub fn agent_start_sidecar(
+    state: tauri::State<'_, Arc<SidecarManager>>,
+    api_key: Option<String>,
+) -> Result<(), String> {
+    state.start(api_key)
 }
 
 #[tauri::command]

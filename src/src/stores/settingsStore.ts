@@ -33,7 +33,7 @@ function applyTheme(theme: "light" | "dark" | "system") {
   }
 }
 
-export const useSettingsStore = create<SettingsState>((set, get) => ({
+export const useSettingsStore = create<SettingsState>((set) => ({
   apiKey: "",
   theme: "system",
   dataLocation: "~/.thinking-space",
