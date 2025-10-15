@@ -32,6 +32,7 @@ pub struct SidecarManager {
     acp_client: Arc<Mutex<Option<AcpClient>>>,
     app_handle: Arc<Mutex<Option<AppHandle>>>,
     session_id: Arc<Mutex<Option<String>>>,
+    request_id: Arc<Mutex<Option<u64>>>,
     message_thread_started: Arc<Mutex<bool>>,
 }
 
@@ -42,6 +43,7 @@ impl SidecarManager {
             acp_client: Arc::new(Mutex::new(None)),
             app_handle: Arc::new(Mutex::new(None)),
             session_id: Arc::new(Mutex::new(None)),
+            request_id: Arc::new(Mutex::new(None)),
             message_thread_started: Arc::new(Mutex::new(false)),
         }
     }
@@ -147,6 +149,7 @@ impl SidecarManager {
         };
 
         let app_handle = self.app_handle.lock().clone();
+        let request_id = self.request_id.lock().clone();
 
         thread::spawn(move || {
             println!("[SIDECAR] Message reading thread started");
@@ -155,17 +158,83 @@ impl SidecarManager {
                     Ok(Some(msg)) => {
                         println!("[SIDECAR] Received ACP message: {:?}", msg);
 
-                        // Convert ACP message to our JsonRpcResponse format for frontend
-                        let response = JsonRpcResponse {
-                            jsonrpc: msg.jsonrpc.clone(),
-                            id: msg.id,
-                            result: msg.result,
-                            error: msg.error.map(|e| JsonRpcError {
-                                code: e.code,
-                                message: e.message,
-                            }),
-                            method: msg.method,
-                            params: msg.params,
+                        // Translate ACP session/update notifications to frontend format
+                        let response = if msg.method.as_deref() == Some("session/update") {
+                            // Extract sessionId and update from params
+                            if let Some(params) = &msg.params {
+                                if let (Some(session_id), Some(update)) =
+                                    (params.get("sessionId"), params.get("update"))
+                                {
+                                    // Check if this is an agent_message_chunk
+                                    if update.get("sessionUpdate").and_then(|v| v.as_str())
+                                        == Some("agent_message_chunk")
+                                    {
+                                        // Translate to streamEvent format that frontend expects
+                                        if let Some(content) = update.get("content") {
+                                            // Use session-{requestId} format expected by frontend
+                                            let frontend_session_id =
+                                                if let Some(req_id) = request_id {
+                                                    format!("session-{}", req_id)
+                                                } else {
+                                                    format!("session-{}", session_id)
+                                                };
+
+                                            JsonRpcResponse {
+                                                jsonrpc: msg.jsonrpc.clone(),
+                                                id: None,
+                                                result: None,
+                                                error: None,
+                                                method: Some("streamEvent".to_string()),
+                                                params: Some(serde_json::json!({
+                                                    "sessionId": frontend_session_id,
+                                                    "event": {
+                                                        "type": "assistant",
+                                                        "message": {
+                                                            "role": "assistant",
+                                                            "content": [content]
+                                                        }
+                                                    }
+                                                })),
+                                            }
+                                        } else {
+                                            // No content, skip this message
+                                            continue;
+                                        }
+                                    } else {
+                                        // Other session updates - pass through as-is (for debugging)
+                                        JsonRpcResponse {
+                                            jsonrpc: msg.jsonrpc.clone(),
+                                            id: msg.id,
+                                            result: msg.result,
+                                            error: msg.error.map(|e| JsonRpcError {
+                                                code: e.code,
+                                                message: e.message,
+                                            }),
+                                            method: msg.method,
+                                            params: msg.params,
+                                        }
+                                    }
+                                } else {
+                                    // Missing sessionId or update
+                                    continue;
+                                }
+                            } else {
+                                // No params
+                                continue;
+                            }
+                        } else {
+                            // Not a session/update, pass through
+                            JsonRpcResponse {
+                                jsonrpc: msg.jsonrpc.clone(),
+                                id: msg.id,
+                                result: msg.result,
+                                error: msg.error.map(|e| JsonRpcError {
+                                    code: e.code,
+                                    message: e.message,
+                                }),
+                                method: msg.method,
+                                params: msg.params,
+                            }
                         };
 
                         // Emit to frontend
@@ -228,6 +297,9 @@ pub fn agent_send_message(
         "[SIDECAR CMD] agent_send_message called with request_id={}",
         params.request_id
     );
+
+    // Store request_id for message translation
+    *state.request_id.lock() = Some(params.request_id);
 
     let client = state.get_acp_client().ok_or("ACP client not initialized")?;
 
