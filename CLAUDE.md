@@ -4,11 +4,35 @@
 
 Building a desktop app that makes Claude Agent SDK as approachable as Claude Desktop. A spatial interface for thinking with AI—non-developers should love it.
 
-## Current State
+## Context Management Strategy
 
-**Phase:** MVP Development (85% complete)
-**Status:** Core features working, polish needed
-**See:** `docs/STATUS.md` for detailed current state
+**IMPORTANT:** To maintain context and avoid confusion:
+
+1. **At the start of every session:**
+   - Read `dev-docs/CURRENT-STATE.md` - complete project state
+   - Note what's been completed vs what needs work
+   - Ask user what they want to focus on
+
+2. **During long conversations (every ~10-15 exchanges):**
+   - Proactively re-read `dev-docs/CURRENT-STATE.md`
+   - Verify assumptions are still correct
+   - Check if recent changes affect your understanding
+
+3. **Before making significant changes:**
+   - Re-read relevant sections of `dev-docs/CURRENT-STATE.md`
+   - Check if similar work has been done already
+   - Verify you're not duplicating or conflicting with existing code
+
+4. **After completing work:**
+   - Update `dev-docs/CURRENT-STATE.md` with changes
+   - Mark completed tasks with ✅
+   - Update "What Works" and "What Needs Work" sections
+
+## Current State Summary
+
+**Phase:** MVP Development (95% complete)
+**Status:** ACP v2 fully integrated, all core UI complete
+**See:** `dev-docs/CURRENT-STATE.md` for detailed current state
 
 ## Tech Stack
 
@@ -44,9 +68,10 @@ src-tauri/         Rust backend
 
 ### Before Starting Work
 
-1. **Check `docs/STATUS.md`** - See what's built, what's not, priorities
+1. **Check `dev-docs/CURRENT-STATE.md`** - See what's built, what's not, priorities
 2. **Review related code** - Understand existing patterns
 3. **Check Zed's approach** - If implementing similar feature (in `~/Symbols/Codes/zed`)
+4. **Verify assumptions** - Don't assume, verify by reading current state
 
 ### When Implementing Features
 
@@ -96,10 +121,11 @@ src-tauri/         Rust backend
 
 **After completing work:**
 
-1. Update `CURRENT-STATE.md` - mark completed items, update status
+1. Update `dev-docs/CURRENT-STATE.md` - mark completed items, update status
 2. Update `README.md` if user-facing feature changed
 3. Add inline code comments for complex logic
 4. Clean up any temporary notes/files created during work
+5. Re-read updated state doc to verify accuracy
 
 ## Key Concepts
 
@@ -137,10 +163,17 @@ src-tauri/         Rust backend
 
 ## References
 
-- **Current state:** `CURRENT-STATE.md` ⭐ READ THIS FIRST - complete status and architecture
+- **Current state:** `dev-docs/CURRENT-STATE.md` ⭐ READ THIS FIRST (and re-read often)
 - **User docs:** `README.md` - getting started, user-facing features
 - **Developer docs:** `dev-docs/` - technical deep dives when needed
 - **Zed codebase:** `~/Symbols/Codes/zed` (for reference on ACP patterns)
+
+## Pro Tips
+
+- **Lost context?** → Re-read `dev-docs/CURRENT-STATE.md`
+- **Unsure what's built?** → Check "What Works" section in CURRENT-STATE.md
+- **Don't know what to do next?** → Check "What Needs Work" section
+- **Making duplicate work?** → You didn't read CURRENT-STATE.md recently enough 😉
 
 ## Quick Commands
 

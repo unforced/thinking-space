@@ -60,7 +60,7 @@ Built on a solid foundation using Zed's Agent Client Protocol library.
 - Keyboard shortcuts
 - Better error messages
 
-**For Complete Status:** See [`CURRENT-STATE.md`](CURRENT-STATE.md)
+**For Complete Status:** See [`dev-docs/CURRENT-STATE.md`](dev-docs/CURRENT-STATE.md)
 
 ---
 
@@ -199,14 +199,13 @@ User → Chat UI → AgentService → Tauri Commands → AcpManager → ACP Libr
 ### For Users
 
 - **This README** - Getting started
-- **CURRENT-STATE.md** - What works, what doesn't, current priorities
+- **dev-docs/CURRENT-STATE.md** - What works, what doesn't, current priorities
 
 ### For Developers
 
-- **CURRENT-STATE.md** - Architecture overview, how everything fits together
+- **dev-docs/CURRENT-STATE.md** - Architecture overview, how everything fits together
 - **dev-docs/ACP-LIBRARY-REFERENCE.md** - Complete ACP API reference
 - **dev-docs/ACP-V2-COMPLETE.md** - Implementation details and decisions
-- **FRONTEND-WIRED-UP.md** - Frontend integration guide
 
 ### Historical Context
 
@@ -239,7 +238,7 @@ cd src-tauri && cargo test   # Run tests
 3. **Events** → Add in backend, listen in `agentService.ts`
 4. **Commands** → Add to `manager.rs`, register in `main.rs`
 
-See `CURRENT-STATE.md` for detailed development guide.
+See `dev-docs/CURRENT-STATE.md` for detailed development guide.
 
 ---
 
@@ -281,7 +280,7 @@ We're in active development. Contributions welcome!
 
 **Read First:**
 
-- `CURRENT-STATE.md` - Understand current architecture
+- `dev-docs/CURRENT-STATE.md` - Understand current architecture
 - `dev-docs/README.md` - Developer documentation index
 
 ---
@@ -289,7 +288,7 @@ We're in active development. Contributions welcome!
 ## 📧 Questions?
 
 - **Bugs/Features:** Open an issue
-- **Development:** Read `CURRENT-STATE.md`
+- **Development:** Read `dev-docs/CURRENT-STATE.md`
 - **ACP Questions:** Check `dev-docs/ACP-LIBRARY-REFERENCE.md`
 
 ---
