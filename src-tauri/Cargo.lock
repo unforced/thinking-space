@@ -4177,6 +4177,7 @@ name = "thinking-space"
 version = "0.1.0"
 dependencies = [
  "agent-client-protocol",
+ "agent-client-protocol-schema",
  "async-trait",
  "chrono",
  "dirs 5.0.1",

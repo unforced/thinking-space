@@ -6,6 +6,13 @@ import { useChatStore } from "../stores/chatStore";
 import { useSpacesStore } from "../stores/spacesStore";
 import { FileAttachment } from "./FileAttachment";
 import type { AttachedFile } from "./FileAttachment";
+import { PermissionDialog } from "./PermissionDialog";
+import { ToolCallDisplay } from "./ToolCallDisplay";
+import {
+  agentService,
+  type PermissionRequest,
+  type ToolCall,
+} from "../services/agentService";
 import "highlight.js/styles/github-dark.css";
 
 export function ChatArea() {
@@ -16,19 +23,73 @@ export function ChatArea() {
   const { currentSpace } = useSpacesStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Permission and tool call state
+  const [permissionRequest, setPermissionRequest] =
+    useState<PermissionRequest | null>(null);
+  const [toolCalls, setToolCalls] = useState<Map<string, ToolCall>>(new Map());
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, currentStreamingMessage]);
 
+  // Set up agent service callbacks
+  useEffect(() => {
+    agentService.onPermissionRequest = (request) => {
+      console.log("[ChatArea] Permission request received:", request.title);
+      setPermissionRequest(request);
+    };
+
+    agentService.onToolCall = (toolCall) => {
+      console.log("[ChatArea] Tool call:", toolCall.title);
+      setToolCalls((prev) => new Map(prev).set(toolCall.toolCallId, toolCall));
+    };
+
+    agentService.onToolCallUpdate = (toolCall) => {
+      console.log("[ChatArea] Tool call update:", toolCall.toolCallId);
+      setToolCalls((prev) => new Map(prev).set(toolCall.toolCallId, toolCall));
+    };
+
+    // Cleanup
+    return () => {
+      agentService.onPermissionRequest = undefined;
+      agentService.onToolCall = undefined;
+      agentService.onToolCallUpdate = undefined;
+    };
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || streaming || !currentSpace) return;
+    console.log(
+      "[ChatArea] handleSubmit called, streaming:",
+      streaming,
+      "input:",
+      input.trim().substring(0, 50),
+    );
+
+    if (!input.trim() || streaming || !currentSpace) {
+      console.log(
+        "[ChatArea] Blocking submit - input empty:",
+        !input.trim(),
+        "streaming:",
+        streaming,
+        "no space:",
+        !currentSpace,
+      );
+      return;
+    }
+
+    // Clear previous tool calls and permission requests for new message
+    console.log("[ChatArea] Clearing previous tool calls and permissions");
+    setToolCalls(new Map());
+    setPermissionRequest(null);
 
     // Pass file paths to sendMessage
     const filePaths =
       attachedFiles.length > 0 ? attachedFiles.map((f) => f.path) : undefined;
 
+    console.log("[ChatArea] Calling sendMessage");
     await sendMessage(input.trim(), filePaths);
+    console.log("[ChatArea] sendMessage completed");
     setInput("");
     setAttachedFiles([]); // Clear attachments after sending
   };
@@ -39,6 +100,28 @@ export function ChatArea() {
 
   const handleFileRemoved = (index: number) => {
     setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handlePermissionApprove = async (optionId: string) => {
+    if (permissionRequest) {
+      await agentService.respondToPermission(
+        permissionRequest.request_id,
+        optionId,
+        false,
+      );
+      setPermissionRequest(null);
+    }
+  };
+
+  const handlePermissionDeny = async () => {
+    if (permissionRequest) {
+      await agentService.respondToPermission(
+        permissionRequest.request_id,
+        null,
+        true,
+      );
+      setPermissionRequest(null);
+    }
   };
 
   if (!currentSpace) {
@@ -123,6 +206,25 @@ export function ChatArea() {
             {streaming && currentStreamingMessage && (
               <div className="flex justify-start">
                 <div className="bg-gray-100 dark:bg-gray-800 rounded-lg px-4 py-3 max-w-[80%]">
+                  {/* Tool calls */}
+                  {toolCalls.size > 0 && (
+                    <div className="mb-3">
+                      {Array.from(toolCalls.values()).map((tc) => (
+                        <ToolCallDisplay key={tc.toolCallId} toolCall={tc} />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Permission request - inline with message */}
+                  {permissionRequest && (
+                    <PermissionDialog
+                      request={permissionRequest}
+                      onApprove={handlePermissionApprove}
+                      onDeny={handlePermissionDeny}
+                    />
+                  )}
+
+                  {/* Message content */}
                   <div className="prose dark:prose-invert max-w-none prose-pre:bg-gray-900 prose-pre:text-gray-100 text-gray-900 dark:text-white">
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm]}

@@ -87,11 +87,19 @@ src-tauri/         Rust backend
 
 ### Documentation
 
+**IMPORTANT - Avoid Creating New Markdown Files:**
+
+- ❌ **DON'T** create session summary markdown files in root
+- ❌ **DON'T** create new planning documents unless explicitly requested
+- ✅ **DO** update existing docs (`CURRENT-STATE.md`, `README.md`)
+- ✅ **DO** add inline code comments for complex logic
+
 **After completing work:**
 
-1. Update `docs/STATUS.md` - move item from "Not Built" to "Built"
-2. Update README.md if user-facing feature
+1. Update `CURRENT-STATE.md` - mark completed items, update status
+2. Update `README.md` if user-facing feature changed
 3. Add inline code comments for complex logic
+4. Clean up any temporary notes/files created during work
 
 ## Key Concepts
 
@@ -129,11 +137,10 @@ src-tauri/         Rust backend
 
 ## References
 
-- **Full status:** `docs/STATUS.md` ⭐ READ THIS FIRST
-- **Vision:** `docs/VISION.md`
-- **Architecture:** `docs/ARCHITECTURE.md`
-- **Scope:** `docs/MVP-SCOPE.md`
-- **Zed codebase:** `~/Symbols/Codes/zed` (for reference)
+- **Current state:** `CURRENT-STATE.md` ⭐ READ THIS FIRST - complete status and architecture
+- **User docs:** `README.md` - getting started, user-facing features
+- **Developer docs:** `dev-docs/` - technical deep dives when needed
+- **Zed codebase:** `~/Symbols/Codes/zed` (for reference on ACP patterns)
 
 ## Quick Commands
 

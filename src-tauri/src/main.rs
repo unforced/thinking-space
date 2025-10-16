@@ -1,33 +1,29 @@
 // Prevents additional console window on Windows in release
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod acp_client;
+mod acp_v2;
 mod auth;
 mod conversations;
 mod settings;
-mod sidecar;
 mod spaces;
 
-use sidecar::SidecarManager;
+use acp_v2::AcpManager;
 use std::sync::Arc;
 
 fn main() {
-    let sidecar = Arc::new(SidecarManager::new());
-    let sidecar_clone = sidecar.clone();
+    let acp_manager = Arc::new(AcpManager::new());
+    let acp_manager_clone = acp_manager.clone();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(move |app| {
             // Set app handle for event emission
-            sidecar_clone.set_app_handle(app.handle().clone());
-
-            // Don't start sidecar at startup - wait for API key from frontend
-            // The frontend will call agent_start_sidecar with the API key
+            acp_manager_clone.set_app_handle(app.handle().clone());
 
             Ok(())
         })
-        .manage(sidecar)
+        .manage(acp_manager)
         .invoke_handler(tauri::generate_handler![
             spaces::list_spaces,
             spaces::create_space,
@@ -53,9 +49,11 @@ fn main() {
             auth::save_api_key,
             auth::refresh_oauth_token,
             auth::open_external_url,
-            sidecar::agent_send_message,
-            sidecar::agent_start_sidecar,
-            sidecar::agent_stop_sidecar,
+            // ACP (Agent Client Protocol) commands
+            acp_v2::manager::agent_v2_send_message,
+            acp_v2::manager::agent_v2_start,
+            acp_v2::manager::agent_v2_stop,
+            acp_v2::manager::agent_v2_send_permission_response,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
