@@ -9,6 +9,10 @@ pub struct Settings {
     pub theme: String, // "light" | "dark" | "system"
     #[serde(default)]
     pub has_completed_onboarding: bool,
+    /// Auto-approve safe tool operations (web search, file reads, ls, grep, etc.)
+    /// When true, uses "AllowOnce" (not "AllowAlways") so toggling this off immediately affects new requests
+    #[serde(default)]
+    pub always_allow_tool_actions: bool,
 }
 
 impl Default for Settings {
@@ -17,6 +21,7 @@ impl Default for Settings {
             api_key: None,
             theme: "system".to_string(),
             has_completed_onboarding: false,
+            always_allow_tool_actions: false, // Default to requiring approval
         }
     }
 }

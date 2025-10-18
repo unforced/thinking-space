@@ -73,6 +73,9 @@ export class AgentService {
   public onToolCall?: (toolCall: ToolCall) => void;
   public onToolCallUpdate?: (toolCall: ToolCall) => void;
 
+  // Settings cache
+  private settingsCache: { always_allow_tool_actions: boolean } | null = null;
+
   /**
    * Check if a permission request is for a safe, read-only operation
    * that should be automatically approved
@@ -197,6 +200,30 @@ export class AgentService {
       this.readyResolve = resolve;
     });
     this.setupSidecarListener();
+    this.loadSettings();
+  }
+
+  /**
+   * Load settings from backend
+   */
+  public async loadSettings() {
+    try {
+      const settings = await invoke<{ always_allow_tool_actions: boolean }>(
+        "load_settings",
+      );
+      this.settingsCache = settings;
+      console.log("[FRONTEND V2] Settings loaded:", settings);
+    } catch (error) {
+      console.error("[FRONTEND V2] Failed to load settings:", error);
+      this.settingsCache = { always_allow_tool_actions: false };
+    }
+  }
+
+  /**
+   * Check if global auto-approval is enabled
+   */
+  private shouldAutoApproveAll(): boolean {
+    return this.settingsCache?.always_allow_tool_actions ?? false;
   }
 
   private setupSidecarListener() {
@@ -278,16 +305,32 @@ export class AgentService {
       this.pendingPermissions.set(request.request_id, request);
 
       try {
-        // Check if this is a safe operation that should be auto-approved
-        if (this.isSafeOperation(request)) {
-          console.log("[FRONTEND V2] Auto-approving safe operation");
-          // Find the "allow" or "allow_always" option
-          const allowOption = request.options.find(
+        // Check if we should auto-approve based on:
+        // 1. Global setting (always_allow_tool_actions)
+        // 2. Safe operation detection (web search, file reads, etc.)
+        const globalAutoApprove = this.shouldAutoApproveAll();
+        const isSafe = this.isSafeOperation(request);
+
+        if (globalAutoApprove || isSafe) {
+          const reason = globalAutoApprove
+            ? "global setting enabled"
+            : "detected as safe operation";
+          console.log(`[FRONTEND V2] Auto-approving: ${reason}`);
+
+          // Find "allow_once" option (prefer over "allow_always" following Zed's pattern)
+          // This ensures toggling the setting off immediately affects future requests
+          const allowOnceOption = request.options.find(
             (opt) =>
-              opt.option_id === "allow" ||
-              opt.option_id === "allow_always" ||
-              opt.name.toLowerCase().includes("allow"),
+              opt.option_id === "allow_once" || opt.option_id === "allow",
           );
+
+          const allowOption =
+            allowOnceOption ||
+            request.options.find(
+              (opt) =>
+                opt.option_id === "allow_always" ||
+                opt.name.toLowerCase().includes("allow"),
+            );
 
           if (allowOption) {
             console.log(
@@ -304,12 +347,12 @@ export class AgentService {
             return;
           } else {
             console.warn(
-              "[FRONTEND V2] Safe operation but no allow option found!",
+              "[FRONTEND V2] Should auto-approve but no allow option found!",
               request.options,
             );
           }
         } else {
-          console.log("[FRONTEND V2] Not a safe operation, showing to user");
+          console.log("[FRONTEND V2] Not auto-approved, showing to user");
         }
 
         // For non-safe operations, show to user

@@ -1,9 +1,11 @@
+import { invoke } from "@tauri-apps/api/core";
 import type { PermissionRequest } from "../services/agentService";
 
 interface PermissionDialogProps {
   request: PermissionRequest | null;
   onApprove: (optionId: string) => void;
   onDeny: () => void;
+  onAlwaysAllow?: () => void;
 }
 
 /**
@@ -15,8 +17,33 @@ export function PermissionDialog({
   request,
   onApprove,
   onDeny,
+  onAlwaysAllow,
 }: PermissionDialogProps) {
   if (!request) return null;
+
+  const handleAlwaysAllow = async () => {
+    // Load current settings
+    const settings = await invoke<any>("load_settings");
+
+    // Update to always allow tool actions
+    settings.always_allow_tool_actions = true;
+
+    // Save settings
+    await invoke("save_settings", { settings });
+
+    // Approve this request
+    const allowOption = request.options.find(
+      (opt) => opt.option_id === "allow" || opt.option_id === "allow_once",
+    );
+    if (allowOption) {
+      onApprove(allowOption.option_id);
+    }
+
+    // Notify parent if callback provided
+    if (onAlwaysAllow) {
+      onAlwaysAllow();
+    }
+  };
 
   // Helper to format input values safely
   const formatInputValue = (input: any): string => {
@@ -78,6 +105,38 @@ export function PermissionDialog({
 
       {/* Action buttons - inline, compact style */}
       <div className="px-4 pb-4 flex flex-wrap gap-2">
+        {/* Always Allow - Global setting that persists */}
+        <button
+          onClick={handleAlwaysAllow}
+          className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md
+                   bg-green-600 hover:bg-green-700 text-white
+                   transition-colors duration-150 ease-in-out
+                   focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+          title="Always allow all tool operations (can be changed in Settings)"
+        >
+          <svg
+            className="w-4 h-4 mr-1.5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12l2 2 4-4"
+            />
+          </svg>
+          Always Allow
+        </button>
+
+        {/* Permission-specific options */}
         {request.options.map((option) => (
           <button
             key={option.option_id}
@@ -90,6 +149,8 @@ export function PermissionDialog({
             {option.name}
           </button>
         ))}
+
+        {/* Deny */}
         <button
           onClick={onDeny}
           className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md

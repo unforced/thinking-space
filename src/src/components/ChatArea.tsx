@@ -124,6 +124,12 @@ export function ChatArea() {
     }
   };
 
+  const handleAlwaysAllow = () => {
+    // Reload settings in agentService so future requests use new setting
+    agentService.loadSettings();
+    console.log("[ChatArea] Always allow enabled, settings reloaded");
+  };
+
   if (!currentSpace) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -221,6 +227,7 @@ export function ChatArea() {
                       request={permissionRequest}
                       onApprove={handlePermissionApprove}
                       onDeny={handlePermissionDeny}
+                      onAlwaysAllow={handleAlwaysAllow}
                     />
                   )}
 
