@@ -7,7 +7,13 @@
     "build": "cd src && npm run build",
     "tauri": "cd src && npm run tauri",
     "tauri:dev": "cd src && npm run tauri dev",
-    "tauri:build": "cd src && npm run tauri build"
+    "tauri:build": "cd src && npm run tauri build",
+    "test": "cd src && npm test",
+    "test:ui": "cd src && npm run test:ui",
+    "test:coverage": "cd src && npm run test:coverage",
+    "test:rust": "cd src-tauri && cargo test",
+    "test:all": "npm test && npm run test:rust",
+    "typecheck": "cd src && npm run typecheck"
   },
   "keywords": [
     "tauri",

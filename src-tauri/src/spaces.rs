@@ -303,3 +303,91 @@ pub fn read_file_content(path: String) -> Result<String, String> {
 
     fs::read_to_string(&canonical).map_err(|e| format!("Failed to read file: {}", e))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn test_path_traversal_prevention() {
+        // Test various path traversal attack vectors
+        let attacks = vec![
+            "../../../etc/passwd",
+            "..\\..\\..\\Windows\\System32",
+            "/etc/shadow",
+            "/root/.ssh/id_rsa",
+        ];
+
+        for attack in attacks {
+            let result = read_file_content(attack.to_string());
+            assert!(result.is_err(), "Failed to block path traversal: {}", attack);
+            assert!(
+                result.as_ref().unwrap_err().contains("Invalid path")
+                    || result.as_ref().unwrap_err().contains("Access denied"),
+                "Expected security error for: {}",
+                attack
+            );
+        }
+    }
+
+    #[test]
+    fn test_sensitive_file_blocking() {
+        // Create a temp file with a blocked name
+        let temp_dir = tempfile::tempdir().unwrap();
+        let sensitive_path = temp_dir.path().join("id_rsa");
+        std::fs::write(&sensitive_path, "sensitive data").unwrap();
+
+        let result = read_file_content(sensitive_path.to_string_lossy().to_string());
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("sensitive files"));
+    }
+
+    #[test]
+    fn test_allowed_file_read() {
+        // Create a temp file in a safe location
+        let mut temp_file = NamedTempFile::new().unwrap();
+        let test_content = "test content";
+        temp_file.write_all(test_content.as_bytes()).unwrap();
+        temp_file.flush().unwrap();
+
+        let result = read_file_content(temp_file.path().to_string_lossy().to_string());
+
+        assert!(result.is_ok(), "Should allow reading safe file");
+        assert_eq!(result.unwrap(), test_content);
+    }
+
+    #[test]
+    fn test_get_spaces_dir_creates_directory() {
+        let result = get_spaces_dir();
+        assert!(result.is_ok());
+
+        let spaces_dir = result.unwrap();
+        assert!(spaces_dir.exists());
+        assert!(spaces_dir.ends_with(".thinking-space/spaces"));
+    }
+
+    #[test]
+    fn test_get_template_content_quick_start() {
+        let template = get_template_content("quick-start");
+        assert!(template.contains("# {name}"));
+        assert!(template.contains("## Purpose"));
+        assert!(template.contains("## Context"));
+        assert!(template.contains("## Guidelines"));
+    }
+
+    #[test]
+    fn test_get_template_content_custom() {
+        let template = get_template_content("custom");
+        assert!(template.contains("# {name}"));
+        assert!(template.contains("[Write your own instructions for Claude]"));
+    }
+
+    #[test]
+    fn test_get_template_content_invalid_defaults_to_quick_start() {
+        let template = get_template_content("invalid-template-name");
+        assert_eq!(template, get_template_content("quick-start"));
+    }
+}

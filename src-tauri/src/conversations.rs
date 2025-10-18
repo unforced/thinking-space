@@ -197,3 +197,233 @@ pub struct ConversationMetadata {
     pub updated_at: String,
     pub message_count: i64,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::NamedTempFile;
+
+    fn setup_test_db() -> (Connection, tempfile::TempPath) {
+        let temp_file = NamedTempFile::new().unwrap();
+        let temp_path = temp_file.into_temp_path();
+        let conn = Connection::open(&temp_path).unwrap();
+        init_database(&conn).unwrap();
+        (conn, temp_path)
+    }
+
+    #[test]
+    fn test_database_initialization() {
+        let (conn, _temp) = setup_test_db();
+
+        // Check that the table exists
+        let table_exists: bool = conn
+            .query_row(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='conversations'",
+                [],
+                |_| Ok(true),
+            )
+            .unwrap_or(false);
+
+        assert!(table_exists);
+    }
+
+    #[test]
+    fn test_database_index_created() {
+        let (conn, _temp) = setup_test_db();
+
+        // Check that the index exists
+        let index_exists: bool = conn
+            .query_row(
+                "SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_conversations_updated_at'",
+                [],
+                |_| Ok(true),
+            )
+            .unwrap_or(false);
+
+        assert!(index_exists, "Database index should be created");
+    }
+
+    #[test]
+    fn test_save_and_load_conversation() {
+        let (_conn, _temp) = setup_test_db();
+
+        let messages = vec![
+            Message {
+                id: "msg-1".to_string(),
+                role: "user".to_string(),
+                content: "Hello".to_string(),
+                timestamp: 1234567890,
+                metadata: serde_json::json!({}),
+            },
+            Message {
+                id: "msg-2".to_string(),
+                role: "assistant".to_string(),
+                content: "Hi there!".to_string(),
+                timestamp: 1234567891,
+                metadata: serde_json::json!({}),
+            },
+        ];
+
+        // Save conversation
+        let save_result =
+            save_conversation("test-space".to_string(), "Test Space".to_string(), messages.clone());
+
+        assert!(save_result.is_ok());
+
+        // Load conversation
+        let loaded = load_conversation("test-space".to_string()).unwrap();
+
+        assert_eq!(loaded.len(), 2);
+        assert_eq!(loaded[0].id, "msg-1");
+        assert_eq!(loaded[0].role, "user");
+        assert_eq!(loaded[0].content, "Hello");
+        assert_eq!(loaded[1].id, "msg-2");
+        assert_eq!(loaded[1].role, "assistant");
+    }
+
+    #[test]
+    fn test_load_nonexistent_conversation() {
+        let (_conn, _temp) = setup_test_db();
+
+        let loaded = load_conversation("nonexistent-space".to_string()).unwrap();
+
+        assert_eq!(loaded.len(), 0);
+    }
+
+    #[test]
+    fn test_update_conversation() {
+        let (_conn, _temp) = setup_test_db();
+
+        let messages_v1 = vec![Message {
+            id: "msg-1".to_string(),
+            role: "user".to_string(),
+            content: "First message".to_string(),
+            timestamp: 1234567890,
+            metadata: serde_json::json!({}),
+        }];
+
+        save_conversation(
+            "test-space".to_string(),
+            "Test Space".to_string(),
+            messages_v1,
+        )
+        .unwrap();
+
+        // Update with more messages
+        let messages_v2 = vec![
+            Message {
+                id: "msg-1".to_string(),
+                role: "user".to_string(),
+                content: "First message".to_string(),
+                timestamp: 1234567890,
+                metadata: serde_json::json!({}),
+            },
+            Message {
+                id: "msg-2".to_string(),
+                role: "assistant".to_string(),
+                content: "Second message".to_string(),
+                timestamp: 1234567891,
+                metadata: serde_json::json!({}),
+            },
+        ];
+
+        save_conversation(
+            "test-space".to_string(),
+            "Test Space".to_string(),
+            messages_v2,
+        )
+        .unwrap();
+
+        let loaded = load_conversation("test-space".to_string()).unwrap();
+        assert_eq!(loaded.len(), 2);
+    }
+
+    #[test]
+    fn test_delete_conversation() {
+        let (_conn, _temp) = setup_test_db();
+
+        let messages = vec![Message {
+            id: "msg-1".to_string(),
+            role: "user".to_string(),
+            content: "Test".to_string(),
+            timestamp: 1234567890,
+            metadata: serde_json::json!({}),
+        }];
+
+        save_conversation("test-space".to_string(), "Test".to_string(), messages).unwrap();
+
+        // Verify it exists
+        let loaded_before = load_conversation("test-space".to_string()).unwrap();
+        assert_eq!(loaded_before.len(), 1);
+
+        // Delete
+        delete_conversation("test-space".to_string()).unwrap();
+
+        // Verify it's gone
+        let loaded_after = load_conversation("test-space".to_string()).unwrap();
+        assert_eq!(loaded_after.len(), 0);
+    }
+
+    #[test]
+    fn test_list_conversations() {
+        let (_conn, _temp) = setup_test_db();
+
+        // Create multiple conversations
+        save_conversation(
+            "space-1".to_string(),
+            "Space 1".to_string(),
+            vec![Message {
+                id: "msg-1".to_string(),
+                role: "user".to_string(),
+                content: "Test".to_string(),
+                timestamp: 1234567890,
+                metadata: serde_json::json!({}),
+            }],
+        )
+        .unwrap();
+
+        save_conversation(
+            "space-2".to_string(),
+            "Space 2".to_string(),
+            vec![Message {
+                id: "msg-2".to_string(),
+                role: "user".to_string(),
+                content: "Test 2".to_string(),
+                timestamp: 1234567891,
+                metadata: serde_json::json!({}),
+            }],
+        )
+        .unwrap();
+
+        let conversations = list_conversations().unwrap();
+
+        assert_eq!(conversations.len(), 2);
+        // Should be sorted by updated_at DESC (most recent first)
+        assert_eq!(conversations[0].space_id, "space-2");
+        assert_eq!(conversations[1].space_id, "space-1");
+    }
+
+    #[test]
+    fn test_message_metadata_preservation() {
+        let (_conn, _temp) = setup_test_db();
+
+        let metadata = serde_json::json!({
+            "toolCalls": ["ls", "cat file.txt"],
+            "files": ["/path/to/file.txt"]
+        });
+
+        let messages = vec![Message {
+            id: "msg-1".to_string(),
+            role: "user".to_string(),
+            content: "Test with metadata".to_string(),
+            timestamp: 1234567890,
+            metadata: metadata.clone(),
+        }];
+
+        save_conversation("test-space".to_string(), "Test".to_string(), messages).unwrap();
+
+        let loaded = load_conversation("test-space".to_string()).unwrap();
+
+        assert_eq!(loaded[0].metadata, metadata);
+    }
+}
