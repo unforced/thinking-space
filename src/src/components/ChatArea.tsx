@@ -57,6 +57,61 @@ export function ChatArea() {
     };
   }, []);
 
+  // Keyboard shortcuts for permission requests
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle keyboard shortcuts when there's a permission request
+      if (!permissionRequest) return;
+
+      // Don't trigger if user is typing in an input/textarea
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      // 'y' or Enter - Approve (find first allow option)
+      if (e.key === "y" || e.key === "Y" || e.key === "Enter") {
+        e.preventDefault();
+        const allowOption = permissionRequest.options.find(
+          (opt) =>
+            opt.option_id === "allow_once" ||
+            opt.option_id === "allow" ||
+            opt.option_id === "allow_always" ||
+            opt.name.toLowerCase().includes("allow"),
+        );
+        if (allowOption) {
+          handlePermissionApprove(allowOption.option_id);
+        }
+      }
+
+      // 'n' or Escape - Deny
+      if (e.key === "n" || e.key === "N" || e.key === "Escape") {
+        e.preventDefault();
+        handlePermissionDeny();
+      }
+
+      // 'a' - Always Allow (if implemented)
+      if (e.key === "a" || e.key === "A") {
+        e.preventDefault();
+        // Trigger the "Always Allow" flow
+        const allowOption = permissionRequest.options.find(
+          (opt) => opt.option_id === "allow_once" || opt.option_id === "allow",
+        );
+        if (allowOption) {
+          handlePermissionApprove(allowOption.option_id);
+          handleAlwaysAllow();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [permissionRequest]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log(

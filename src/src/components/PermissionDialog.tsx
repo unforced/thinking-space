@@ -104,63 +104,103 @@ export function PermissionDialog({
       </div>
 
       {/* Action buttons - inline, compact style */}
-      <div className="px-4 pb-4 flex flex-wrap gap-2">
-        {/* Always Allow - Global setting that persists */}
-        <button
-          onClick={handleAlwaysAllow}
-          className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md
-                   bg-green-600 hover:bg-green-700 text-white
-                   transition-colors duration-150 ease-in-out
-                   focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-          title="Always allow all tool operations (can be changed in Settings)"
-        >
-          <svg
-            className="w-4 h-4 mr-1.5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 12l2 2 4-4"
-            />
-          </svg>
-          Always Allow
-        </button>
-
-        {/* Permission-specific options */}
-        {request.options.map((option) => (
+      <div className="px-4 pb-4">
+        <div className="flex flex-wrap gap-2">
+          {/* Always Allow - Global setting that persists */}
           <button
-            key={option.option_id}
-            onClick={() => onApprove(option.option_id)}
+            onClick={handleAlwaysAllow}
             className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md
-                     bg-blue-600 hover:bg-blue-700 text-white
+                     bg-green-600 hover:bg-green-700 text-white
                      transition-colors duration-150 ease-in-out
-                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                     focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+            title="Always allow all tool operations (can be changed in Settings) • Press A"
           >
-            {option.name}
+            <svg
+              className="w-4 h-4 mr-1.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12l2 2 4-4"
+              />
+            </svg>
+            Always Allow
+            <kbd className="ml-2 px-1.5 py-0.5 text-xs bg-green-700 rounded">
+              A
+            </kbd>
           </button>
-        ))}
 
-        {/* Deny */}
-        <button
-          onClick={onDeny}
-          className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md
-                   bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600
-                   text-gray-900 dark:text-gray-100
-                   transition-colors duration-150 ease-in-out
-                   focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
-        >
-          Deny
-        </button>
+          {/* Permission-specific options */}
+          {request.options.map((option, idx) => (
+            <button
+              key={option.option_id}
+              onClick={() => onApprove(option.option_id)}
+              className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md
+                       bg-blue-600 hover:bg-blue-700 text-white
+                       transition-colors duration-150 ease-in-out
+                       focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              title={idx === 0 ? "Press Y or Enter" : undefined}
+            >
+              {option.name}
+              {idx === 0 && (
+                <kbd className="ml-2 px-1.5 py-0.5 text-xs bg-blue-700 rounded">
+                  Y
+                </kbd>
+              )}
+            </button>
+          ))}
+
+          {/* Deny */}
+          <button
+            onClick={onDeny}
+            className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md
+                     bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600
+                     text-gray-900 dark:text-gray-100
+                     transition-colors duration-150 ease-in-out
+                     focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+            title="Press N or Escape"
+          >
+            Deny
+            <kbd className="ml-2 px-1.5 py-0.5 text-xs bg-gray-300 dark:bg-gray-600 rounded">
+              N
+            </kbd>
+          </button>
+        </div>
+
+        {/* Keyboard shortcuts hint */}
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+          💡 Keyboard shortcuts:{" "}
+          <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-gray-700 dark:text-gray-300">
+            Y
+          </kbd>{" "}
+          or{" "}
+          <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-gray-700 dark:text-gray-300">
+            Enter
+          </kbd>{" "}
+          to approve,{" "}
+          <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-gray-700 dark:text-gray-300">
+            N
+          </kbd>{" "}
+          or{" "}
+          <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-gray-700 dark:text-gray-300">
+            Esc
+          </kbd>{" "}
+          to deny,{" "}
+          <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-gray-700 dark:text-gray-300">
+            A
+          </kbd>{" "}
+          to always allow
+        </p>
       </div>
 
       {/* Optional: Show additional details in expandable section */}
