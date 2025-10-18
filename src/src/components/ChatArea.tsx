@@ -8,6 +8,7 @@ import { FileAttachment } from "./FileAttachment";
 import type { AttachedFile } from "./FileAttachment";
 import { PermissionDialog } from "./PermissionDialog";
 import { ToolCallDisplay } from "./ToolCallDisplay";
+import { TokenUsageDisplay } from "./TokenUsageDisplay";
 import {
   agentService,
   type PermissionRequest,
@@ -203,7 +204,10 @@ export function ChatArea() {
   }
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex-1 flex flex-col relative">
+      {/* Token Usage Display */}
+      <TokenUsageDisplay />
+
       {/* Header */}
       <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">

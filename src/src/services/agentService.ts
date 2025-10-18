@@ -76,6 +76,41 @@ export class AgentService {
   // Settings cache
   private settingsCache: { always_allow_tool_actions: boolean } | null = null;
 
+  // Token usage tracking (approximate)
+  private sessionTokens = {
+    inputChars: 0,
+    outputChars: 0,
+    estimatedInputTokens: 0,
+    estimatedOutputTokens: 0,
+  };
+
+  /**
+   * Estimate token count from text (rough approximation: 1 token ≈ 4 characters)
+   * This is a simplified estimate - actual tokenization is more complex
+   */
+  private estimateTokens(text: string): number {
+    return Math.ceil(text.length / 4);
+  }
+
+  /**
+   * Get current session token usage
+   */
+  public getTokenUsage() {
+    return { ...this.sessionTokens };
+  }
+
+  /**
+   * Reset token usage tracking (e.g., when starting a new session)
+   */
+  public resetTokenUsage() {
+    this.sessionTokens = {
+      inputChars: 0,
+      outputChars: 0,
+      estimatedInputTokens: 0,
+      estimatedOutputTokens: 0,
+    };
+  }
+
   /**
    * Check if a permission request is for a safe, read-only operation
    * that should be automatically approved
@@ -337,6 +372,12 @@ export class AgentService {
           text.substring(0, 50),
         );
 
+        // Track output tokens
+        this.sessionTokens.outputChars += text.length;
+        this.sessionTokens.estimatedOutputTokens = this.estimateTokens(
+          String(this.sessionTokens.outputChars),
+        );
+
         if (requestId !== undefined) {
           const pending = this.pendingRequests.get(requestId);
 
@@ -504,6 +545,16 @@ export class AgentService {
     const { claudeMdContent, spacePath, conversationHistory } = options;
 
     console.log("[FRONTEND V2] sendMessage called");
+
+    // Track input tokens (message + context + history)
+    const inputText =
+      message +
+      (claudeMdContent || "") +
+      (conversationHistory?.map((m) => m.content).join("") || "");
+    this.sessionTokens.inputChars += inputText.length;
+    this.sessionTokens.estimatedInputTokens = this.estimateTokens(
+      String(this.sessionTokens.inputChars),
+    );
 
     try {
       // Get authentication credentials (OAuth or API key)
