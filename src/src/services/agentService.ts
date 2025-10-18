@@ -269,36 +269,66 @@ export class AgentService {
     listen<PermissionRequest>("permission-request", async (event) => {
       const request = event.payload;
       console.log("[FRONTEND V2] Permission request:", request.title);
+      console.log("[FRONTEND V2] Permission request details:", {
+        request_id: request.request_id,
+        kind: request.kind,
+        raw_input: request.raw_input,
+      });
 
       this.pendingPermissions.set(request.request_id, request);
 
-      // Check if this is a safe operation that should be auto-approved
-      if (this.isSafeOperation(request)) {
-        console.log("[FRONTEND V2] Auto-approving safe operation");
-        // Find the "allow" or "allow_always" option
-        const allowOption = request.options.find(
-          (opt) =>
-            opt.option_id === "allow" ||
-            opt.option_id === "allow_always" ||
-            opt.name.toLowerCase().includes("allow"),
-        );
-
-        if (allowOption) {
-          // Automatically approve
-          await this.respondToPermission(
-            request.request_id,
-            allowOption.option_id,
-            false,
+      try {
+        // Check if this is a safe operation that should be auto-approved
+        if (this.isSafeOperation(request)) {
+          console.log("[FRONTEND V2] Auto-approving safe operation");
+          // Find the "allow" or "allow_always" option
+          const allowOption = request.options.find(
+            (opt) =>
+              opt.option_id === "allow" ||
+              opt.option_id === "allow_always" ||
+              opt.name.toLowerCase().includes("allow"),
           );
-          return;
+
+          if (allowOption) {
+            console.log(
+              "[FRONTEND V2] Found allow option:",
+              allowOption.option_id,
+            );
+            // Automatically approve
+            await this.respondToPermission(
+              request.request_id,
+              allowOption.option_id,
+              false,
+            );
+            console.log("[FRONTEND V2] Auto-approval sent successfully");
+            return;
+          } else {
+            console.warn(
+              "[FRONTEND V2] Safe operation but no allow option found!",
+              request.options,
+            );
+          }
+        } else {
+          console.log("[FRONTEND V2] Not a safe operation, showing to user");
+        }
+
+        // For non-safe operations, show to user
+        if (this.onPermissionRequest) {
+          this.onPermissionRequest(request);
+        }
+      } catch (error) {
+        console.error(
+          "[FRONTEND V2] Error handling permission request:",
+          error,
+        );
+        // On error, still show to user rather than hanging
+        if (this.onPermissionRequest) {
+          this.onPermissionRequest(request);
         }
       }
-
-      // For non-safe operations, show to user
-      if (this.onPermissionRequest) {
-        this.onPermissionRequest(request);
-      }
-    }).catch(console.error);
+    }).catch((error) => {
+      console.error("[FRONTEND V2] Permission request listener error:", error);
+    });
 
     // Listen for message completion (ACP V2)
     listen<{ requestId: number; stopReason: string }>(
