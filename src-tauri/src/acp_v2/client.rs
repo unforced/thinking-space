@@ -3,10 +3,13 @@
 
 use agent_client_protocol::Client;
 use agent_client_protocol_schema::{
-    Error, ExtNotification, ExtRequest, ExtResponse, PermissionOptionId, ReadTextFileRequest,
-    ReadTextFileResponse, RequestPermissionOutcome, RequestPermissionRequest,
-    RequestPermissionResponse, SessionNotification, SessionUpdate, WriteTextFileRequest,
-    WriteTextFileResponse,
+    CreateTerminalRequest, CreateTerminalResponse, Error, ExtNotification, ExtRequest, ExtResponse,
+    KillTerminalCommandRequest, KillTerminalCommandResponse, PermissionOptionId,
+    ReadTextFileRequest, ReadTextFileResponse, ReleaseTerminalRequest, ReleaseTerminalResponse,
+    RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse,
+    SessionNotification, SessionUpdate, TerminalExitStatus, TerminalOutputRequest,
+    TerminalOutputResponse, WaitForTerminalExitRequest, WaitForTerminalExitResponse,
+    WriteTextFileRequest, WriteTextFileResponse,
 };
 use async_trait::async_trait;
 use parking_lot::Mutex;
@@ -14,6 +17,8 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::mpsc;
+
+use crate::terminal::TerminalManager;
 
 /// Permission request sent to frontend for user approval
 #[derive(Debug, Clone, Serialize)]
@@ -54,6 +59,9 @@ pub struct ThinkingSpaceClient {
 
     // Track current request ID for event emission
     current_request_id: Arc<Mutex<Option<u64>>>,
+
+    // Terminal management
+    terminal_manager: Arc<TerminalManager>,
 }
 
 impl ThinkingSpaceClient {
@@ -68,6 +76,7 @@ impl ThinkingSpaceClient {
             permission_tx,
             permission_rx: Arc::new(Mutex::new(permission_rx)),
             current_request_id: Arc::new(Mutex::new(None)),
+            terminal_manager: Arc::new(TerminalManager::new()),
         };
 
         (client, external_permission_tx)
@@ -319,40 +328,139 @@ impl Client for ThinkingSpaceClient {
             .map_err(|_| Error::internal_error())
     }
 
-    // Terminal methods - not implemented yet
+    // Terminal methods
     async fn create_terminal(
         &self,
-        _args: agent_client_protocol_schema::CreateTerminalRequest,
-    ) -> Result<agent_client_protocol_schema::CreateTerminalResponse, Error> {
-        Err(Error::method_not_found())
+        args: CreateTerminalRequest,
+    ) -> Result<CreateTerminalResponse, Error> {
+        println!(
+            "[ACP TERMINAL] Creating terminal: {} {:?}",
+            args.command, args.args
+        );
+
+        // Convert env variables
+        let env: Vec<(String, String)> = args.env.into_iter().map(|e| (e.name, e.value)).collect();
+
+        // Create terminal
+        let terminal_id = self
+            .terminal_manager
+            .create_terminal(
+                args.command.clone(),
+                args.args.clone(),
+                env,
+                args.cwd.clone(),
+                args.output_byte_limit.map(|n| n as usize),
+            )
+            .await
+            .map_err(|_| Error::internal_error())?;
+
+        // Emit event to frontend
+        self.emit_event(
+            "terminal-created",
+            serde_json::json!({
+                "sessionId": args.session_id.0.to_string(),
+                "terminalId": terminal_id.0.to_string(),
+                "command": format!("{} {}", args.command, args.args.join(" ")),
+            }),
+        );
+
+        println!("[ACP TERMINAL] Terminal created: {}", terminal_id.0);
+
+        Ok(CreateTerminalResponse {
+            terminal_id,
+            meta: None,
+        })
     }
 
     async fn terminal_output(
         &self,
-        _args: agent_client_protocol_schema::TerminalOutputRequest,
-    ) -> Result<agent_client_protocol_schema::TerminalOutputResponse, Error> {
-        Err(Error::method_not_found())
+        args: TerminalOutputRequest,
+    ) -> Result<TerminalOutputResponse, Error> {
+        let (output, exit_code) = self
+            .terminal_manager
+            .get_output(&args.terminal_id.0)
+            .map_err(|_| Error::internal_error())?;
+
+        // Convert exit code to TerminalExitStatus
+        let exit_status = exit_code.map(|code| TerminalExitStatus {
+            exit_code: Some(code as u32),
+            signal: None,
+            meta: None,
+        });
+
+        // Emit output update to frontend
+        self.emit_event(
+            "terminal-output",
+            serde_json::json!({
+                "terminalId": args.terminal_id.0.to_string(),
+                "output": &output,
+                "exitStatus": exit_code,
+            }),
+        );
+
+        Ok(TerminalOutputResponse {
+            output,
+            truncated: false, // We handle truncation in TerminalManager
+            exit_status,
+            meta: None,
+        })
     }
 
     async fn kill_terminal_command(
         &self,
-        _args: agent_client_protocol_schema::KillTerminalCommandRequest,
-    ) -> Result<agent_client_protocol_schema::KillTerminalCommandResponse, Error> {
-        Err(Error::method_not_found())
+        args: KillTerminalCommandRequest,
+    ) -> Result<KillTerminalCommandResponse, Error> {
+        println!("[ACP TERMINAL] Killing terminal: {}", args.terminal_id.0);
+
+        self.terminal_manager
+            .kill(&args.terminal_id.0)
+            .await
+            .map_err(|_| Error::internal_error())?;
+
+        Ok(KillTerminalCommandResponse { meta: None })
     }
 
     async fn release_terminal(
         &self,
-        _args: agent_client_protocol_schema::ReleaseTerminalRequest,
-    ) -> Result<agent_client_protocol_schema::ReleaseTerminalResponse, Error> {
-        Err(Error::method_not_found())
+        args: ReleaseTerminalRequest,
+    ) -> Result<ReleaseTerminalResponse, Error> {
+        println!("[ACP TERMINAL] Releasing terminal: {}", args.terminal_id.0);
+
+        self.terminal_manager
+            .release(&args.terminal_id.0)
+            .map_err(|_| Error::internal_error())?;
+
+        Ok(ReleaseTerminalResponse { meta: None })
     }
 
     async fn wait_for_terminal_exit(
         &self,
-        _args: agent_client_protocol_schema::WaitForTerminalExitRequest,
-    ) -> Result<agent_client_protocol_schema::WaitForTerminalExitResponse, Error> {
-        Err(Error::method_not_found())
+        args: WaitForTerminalExitRequest,
+    ) -> Result<WaitForTerminalExitResponse, Error> {
+        println!(
+            "[ACP TERMINAL] Waiting for terminal to exit: {}",
+            args.terminal_id.0
+        );
+
+        let exit_code = self
+            .terminal_manager
+            .wait_for_exit(&args.terminal_id.0)
+            .await
+            .map_err(|_| Error::internal_error())?;
+
+        println!(
+            "[ACP TERMINAL] Terminal {} exited with code: {}",
+            args.terminal_id.0, exit_code
+        );
+
+        Ok(WaitForTerminalExitResponse {
+            exit_status: TerminalExitStatus {
+                exit_code: Some(exit_code as u32),
+                signal: None,
+                meta: None,
+            },
+            meta: None,
+        })
     }
 
     // Extension methods - not implemented

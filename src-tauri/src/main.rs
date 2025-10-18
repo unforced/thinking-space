@@ -8,6 +8,7 @@ mod conversations;
 mod sessions;
 mod settings;
 mod spaces;
+mod terminal;
 
 use acp_v2::AcpManager;
 use std::sync::Arc;

@@ -135,7 +135,10 @@ impl AcpManager {
                 let init_response = conn
                     .initialize(InitializeRequest {
                         protocol_version: VERSION,
-                        client_capabilities: ClientCapabilities::default(),
+                        client_capabilities: ClientCapabilities {
+                            terminal: true, // Enable terminal support
+                            ..Default::default()
+                        },
                         meta: None,
                     })
                     .await
