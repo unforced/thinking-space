@@ -16,17 +16,29 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const [saving, setSaving] = useState(false);
   const [authStatus, setAuthStatus] = useState<AuthCredentials | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
+  const [alwaysAllowToolActions, setAlwaysAllowToolActions] = useState(false);
 
-  // Load authentication status
+  // Load authentication status and settings
   useEffect(() => {
     if (isOpen) {
       loadAuthStatus();
+      loadSettings();
     }
   }, [isOpen]);
 
   useEffect(() => {
     setLocalApiKey(apiKey);
   }, [apiKey]);
+
+  const loadSettings = async () => {
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const settings = await invoke<any>("load_settings");
+      setAlwaysAllowToolActions(settings.always_allow_tool_actions ?? false);
+    } catch (error) {
+      console.error("Failed to load settings:", error);
+    }
+  };
 
   const loadAuthStatus = async () => {
     setLoadingAuth(true);
@@ -46,7 +58,16 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const handleSave = async () => {
     setSaving(true);
     try {
+      const { invoke } = await import("@tauri-apps/api/core");
+
+      // Save API key via settings store
       await setApiKey(localApiKey);
+
+      // Load current settings, update always_allow_tool_actions, and save
+      const settings = await invoke<any>("load_settings");
+      settings.always_allow_tool_actions = alwaysAllowToolActions;
+      await invoke("save_settings", { settings });
+
       await loadAuthStatus(); // Refresh auth status
       onClose();
     } catch (error) {
@@ -303,6 +324,46 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                 <option value="light">Light</option>
                 <option value="dark">Dark</option>
               </select>
+            </div>
+
+            {/* Always Allow Tool Actions */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Tool Permissions
+              </label>
+              <div className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                <div className="flex-1 mr-4">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    Always allow tool actions
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Automatically approve safe operations like file reads,
+                    searches, and commands without confirmation
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={alwaysAllowToolActions}
+                  onClick={() =>
+                    setAlwaysAllowToolActions(!alwaysAllowToolActions)
+                  }
+                  className={`
+                    relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent
+                    transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+                    ${alwaysAllowToolActions ? "bg-green-600" : "bg-gray-300 dark:bg-gray-600"}
+                  `}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`
+                      pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0
+                      transition duration-200 ease-in-out
+                      ${alwaysAllowToolActions ? "translate-x-5" : "translate-x-0"}
+                    `}
+                  />
+                </button>
+              </div>
             </div>
 
             {/* Data Location */}
