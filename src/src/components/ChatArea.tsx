@@ -9,6 +9,7 @@ import type { AttachedFile } from "./FileAttachment";
 import { PermissionDialog } from "./PermissionDialog";
 import { ToolCallDisplay } from "./ToolCallDisplay";
 import { TokenUsageDisplay } from "./TokenUsageDisplay";
+import { CommandPalette } from "./CommandPalette";
 import {
   agentService,
   type PermissionRequest,
@@ -23,12 +24,17 @@ export function ChatArea() {
     useChatStore();
   const { currentSpace } = useSpacesStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Permission and tool call state
   const [permissionQueue, setPermissionQueue] = useState<PermissionRequest[]>(
     [],
   );
   const [toolCalls, setToolCalls] = useState<Map<string, ToolCall>>(new Map());
+
+  // Slash command palette state
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [cursorPosition, setCursorPosition] = useState(0);
 
   // Current permission is the first in queue
   const permissionRequest = permissionQueue[0] || null;
@@ -153,6 +159,52 @@ export function ChatArea() {
     console.log("[ChatArea] sendMessage completed");
     setInput("");
     setAttachedFiles([]); // Clear attachments after sending
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    const newCursorPos = e.target.selectionStart;
+
+    setInput(newValue);
+    setCursorPosition(newCursorPos);
+
+    // Show command palette if "/" is typed at start or after space
+    const beforeCursor = newValue.substring(0, newCursorPos);
+    const lastSlashIndex = beforeCursor.lastIndexOf("/");
+
+    // Show palette if there's a "/" and it's either at the start or after whitespace
+    if (lastSlashIndex !== -1) {
+      const charBeforeSlash =
+        lastSlashIndex > 0 ? beforeCursor[lastSlashIndex - 1] : " ";
+      const shouldShow =
+        charBeforeSlash === " " ||
+        charBeforeSlash === "\n" ||
+        lastSlashIndex === 0;
+      setShowCommandPalette(shouldShow);
+    } else {
+      setShowCommandPalette(false);
+    }
+  };
+
+  const handleCommandSelect = (expandedText: string) => {
+    // Find the "/" that triggered the palette
+    const beforeCursor = input.substring(0, cursorPosition);
+    const lastSlashIndex = beforeCursor.lastIndexOf("/");
+
+    if (lastSlashIndex !== -1) {
+      // Replace from "/" to cursor position with the expanded command
+      const before = input.substring(0, lastSlashIndex);
+      const after = input.substring(cursorPosition);
+      const newInput = before + expandedText + after;
+
+      setInput(newInput);
+      setShowCommandPalette(false);
+
+      // Focus back to textarea
+      setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 0);
+    }
   };
 
   const handleFilesAdded = (newFiles: AttachedFile[]) => {
@@ -357,17 +409,36 @@ export function ChatArea() {
           />
 
           {/* Message Input */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 relative">
+            {/* Command Palette */}
+            {currentSpace && (
+              <CommandPalette
+                spacePath={currentSpace.path}
+                visible={showCommandPalette}
+                inputValue={input}
+                onCommandSelect={handleCommandSelect}
+                onClose={() => setShowCommandPalette(false)}
+                cursorPosition={cursorPosition}
+              />
+            )}
+
             <textarea
+              ref={textareaRef}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={handleInputChange}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
+                // Don't submit if command palette is open
+                if (e.key === "Enter" && !e.shiftKey && !showCommandPalette) {
                   e.preventDefault();
                   handleSubmit(e);
                 }
               }}
-              placeholder="Type a message... (Shift+Enter for new line)"
+              onSelect={(e) => {
+                // Track cursor position for command palette
+                const target = e.target as HTMLTextAreaElement;
+                setCursorPosition(target.selectionStart);
+              }}
+              placeholder="Type a message... (Shift+Enter for new line, / for commands)"
               className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg
                        bg-white dark:bg-gray-800 text-gray-900 dark:text-white
                        focus:ring-2 focus:ring-blue-500 focus:border-transparent

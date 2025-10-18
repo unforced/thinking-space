@@ -3,6 +3,7 @@
 
 mod acp_v2;
 mod auth;
+mod commands;
 mod conversations;
 mod settings;
 mod spaces;
@@ -54,6 +55,12 @@ fn main() {
             acp_v2::manager::agent_v2_start,
             acp_v2::manager::agent_v2_stop,
             acp_v2::manager::agent_v2_send_permission_response,
+            // Slash commands
+            commands::list_slash_commands,
+            commands::load_slash_command,
+            commands::expand_slash_command,
+            commands::create_slash_command,
+            commands::delete_slash_command,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
