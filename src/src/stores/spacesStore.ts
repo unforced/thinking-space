@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
+import { agentService } from "../services/agentService";
 
 export interface Space {
   id: string;
@@ -43,7 +44,7 @@ interface SpacesState {
   // Actions
   loadSpaces: () => Promise<void>;
   createSpace: (name: string, template: string) => Promise<void>;
-  selectSpace: (id: string) => void;
+  selectSpace: (id: string) => Promise<void>;
   deleteSpace: (id: string) => Promise<void>;
   updateLastAccessed: (id: string) => Promise<void>;
 }
@@ -84,11 +85,18 @@ export const useSpacesStore = create<SpacesState>((set, get) => ({
     }
   },
 
-  selectSpace: (id: string) => {
+  selectSpace: async (id: string) => {
     const space = get().spaces.find((s) => s.id === id);
     if (space) {
       set({ currentSpace: space });
       get().updateLastAccessed(id);
+
+      // Try to restore session for this space
+      console.log(
+        "[SPACES STORE] Attempting to restore session for space:",
+        id,
+      );
+      await agentService.restoreSessionForSpace(id);
     }
   },
 

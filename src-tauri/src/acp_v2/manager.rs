@@ -326,6 +326,18 @@ pub fn agent_v2_send_message(
                 *session_id_arc.lock() = Some(session_id.clone());
 
                 println!("[ACP V2] Session created: {}", session_id.0);
+
+                // Emit session created event to frontend so it can persist the session
+                if let Some(handle) = app_handle_arc.lock().as_ref() {
+                    let _ = handle.emit(
+                        "agent-session-created",
+                        serde_json::json!({
+                            "sessionId": session_id.0,
+                        }),
+                    );
+                    println!("[ACP V2] Emitted agent-session-created event");
+                }
+
                 session_id
             };
 
@@ -407,4 +419,21 @@ pub fn agent_v2_send_permission_response(
     response: FrontendPermissionResponse,
 ) -> Result<(), String> {
     state.send_permission_response(response)
+}
+
+#[tauri::command]
+pub fn agent_v2_get_current_session_id(
+    state: tauri::State<'_, Arc<AcpManager>>,
+) -> Result<Option<String>, String> {
+    let session_id = state.session_id.lock();
+    Ok(session_id.as_ref().map(|id| id.0.to_string()))
+}
+
+#[tauri::command]
+pub fn agent_v2_set_session_id(
+    state: tauri::State<'_, Arc<AcpManager>>,
+    session_id: String,
+) -> Result<(), String> {
+    *state.session_id.lock() = Some(SessionId(session_id.into()));
+    Ok(())
 }

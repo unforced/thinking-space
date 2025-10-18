@@ -53,9 +53,11 @@ Built on a solid foundation using Zed's Agent Client Protocol library.
   - 4 starter commands included
   - Create your own in `.claude/commands/`
   - Git-shareable with your team
-- **Session Persistence (Backend)** - Sessions saved to database
-  - Frontend integration coming soon
-  - Resume work across app restarts
+- **Session Persistence** ✅ - Full implementation complete!
+  - Sessions automatically saved when created
+  - Automatically restored when switching spaces
+  - Full conversation context maintained across app restarts
+  - Zero configuration required
 
 ### 🔜 Coming Soon
 

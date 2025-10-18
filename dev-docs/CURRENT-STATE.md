@@ -197,7 +197,10 @@ User sees response
 
 1. **Error Messages** - Better user-facing errors
 2. **Loading States** - UI feedback during operations
-3. **Session Persistence** - Save/load sessions (ACP supports this)
+3. ✅ ~~**Session Persistence**~~ - **DONE** (October 18, 2025)
+   - Sessions automatically saved to SQLite
+   - Restored when switching spaces
+   - Full conversation context maintained
 
 ### Low Priority (Future)
 

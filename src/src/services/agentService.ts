@@ -84,6 +84,9 @@ export class AgentService {
     estimatedOutputTokens: 0,
   };
 
+  // Current space ID for session persistence
+  private currentSpaceId: string | null = null;
+
   /**
    * Estimate token count from text (rough approximation: 1 token ≈ 4 characters)
    * This is a simplified estimate - actual tokenization is more complex
@@ -329,6 +332,68 @@ export class AgentService {
   }
 
   /**
+   * Restore session for a space if one exists
+   */
+  public async restoreSessionForSpace(spaceId: string): Promise<boolean> {
+    try {
+      console.log(
+        "[FRONTEND V2] Checking for active session for space:",
+        spaceId,
+      );
+      const session = await invoke<{
+        session_id: string;
+        space_id: string;
+        created_at: number;
+        last_active: number;
+        is_active: boolean;
+        metadata: any;
+      } | null>("get_active_session_for_space", { spaceId });
+
+      if (session) {
+        console.log("[FRONTEND V2] Found active session:", session.session_id);
+        // Set the session ID in the ACP manager
+        await invoke("agent_v2_set_session_id", {
+          sessionId: session.session_id,
+        });
+        console.log("[FRONTEND V2] Session restored successfully");
+        return true;
+      } else {
+        console.log("[FRONTEND V2] No active session found for space");
+        return false;
+      }
+    } catch (error) {
+      console.error("[FRONTEND V2] Failed to restore session:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Save current session for a space
+   */
+  private async saveSessionForSpace(
+    spaceId: string,
+    sessionId: string,
+  ): Promise<void> {
+    try {
+      const now = Date.now();
+      await invoke("save_session", {
+        session: {
+          session_id: sessionId,
+          space_id: spaceId,
+          created_at: now,
+          last_active: now,
+          is_active: true,
+          metadata: {},
+        },
+      });
+      console.log("[FRONTEND V2] Session saved for space:", spaceId);
+    } catch (error) {
+      console.error("[FRONTEND V2] Failed to save session:", error);
+      // Don't throw - session saving is not critical to UX
+    }
+  }
+
+  /**
    * Load settings from backend
    */
   public async loadSettings() {
@@ -358,6 +423,22 @@ export class AgentService {
       this.isAgentReady = true;
       if (this.readyResolve) {
         this.readyResolve();
+      }
+    }).catch(console.error);
+
+    // Listen for session created event
+    listen<{ sessionId: string }>("agent-session-created", async (event) => {
+      const { sessionId } = event.payload;
+      console.log("[FRONTEND V2] Session created:", sessionId);
+
+      // Get current space ID from the last sendMessage call
+      // We'll store this in a class variable when sendMessage is called
+      if (this.currentSpaceId) {
+        await this.saveSessionForSpace(this.currentSpaceId, sessionId);
+      } else {
+        console.warn(
+          "[FRONTEND V2] Session created but no current space ID set",
+        );
       }
     }).catch(console.error);
 
@@ -542,9 +623,13 @@ export class AgentService {
     message: string,
     options: SendMessageOptions,
   ): AsyncGenerator<string, void, unknown> {
-    const { claudeMdContent, spacePath, conversationHistory } = options;
+    const { spaceId, claudeMdContent, spacePath, conversationHistory } =
+      options;
 
     console.log("[FRONTEND V2] sendMessage called");
+
+    // Store current space ID for session persistence
+    this.currentSpaceId = spaceId;
 
     // Track input tokens (message + context + history)
     const inputText =
