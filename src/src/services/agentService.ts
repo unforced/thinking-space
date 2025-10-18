@@ -127,6 +127,8 @@ export class AgentService {
       // Bash commands - only safe read-only commands
       if ("command" in rawInput) {
         const command = String(rawInput.command).toLowerCase().trim();
+
+        // Expanded list of safe read-only commands
         const safeCommands = [
           "ls",
           "pwd",
@@ -147,11 +149,45 @@ export class AgentService {
           "whoami",
           "which",
           "whereis",
+          "env",
+          "printenv",
+          "hostname",
+          "uname",
+          "arch",
+          "uptime",
+          "w",
+          "who",
+          "id",
+          "groups",
+          "git status",
+          "git log",
+          "git diff",
+          "git show",
+          "git branch",
+          "git remote",
+          "npm list",
+          "npm ls",
+          "npm outdated",
+          "npm view",
+          "cargo tree",
+          "cargo search",
+          "python --version",
+          "node --version",
+          "rustc --version",
+          "java -version",
+          "mvn --version",
         ];
 
         // Check if command starts with any safe command
         const commandStart = command.split(/[\s|&;]/)[0];
-        if (safeCommands.includes(commandStart)) {
+
+        // Also check for safe multi-word commands like "git status"
+        const isSafeCommand = safeCommands.some(
+          (safe) =>
+            command.startsWith(safe) || commandStart === safe.split(" ")[0],
+        );
+
+        if (isSafeCommand) {
           console.log(
             "[FRONTEND V2] Auto-approving safe bash command:",
             command,
@@ -171,6 +207,35 @@ export class AgentService {
         console.log("[FRONTEND V2] Auto-approving search operation:", title);
         return true;
       }
+
+      // Screenshot/snapshot operations (read-only visual inspection)
+      if ("screenshot" in rawInput || "snapshot" in rawInput) {
+        console.log("[FRONTEND V2] Auto-approving screenshot/snapshot:", title);
+        return true;
+      }
+
+      // Browser navigation (read-only)
+      if (
+        "url" in rawInput &&
+        !("text" in rawInput) &&
+        !("value" in rawInput)
+      ) {
+        console.log(
+          "[FRONTEND V2] Auto-approving browser navigation:",
+          rawInput.url,
+        );
+        return true;
+      }
+
+      // File/directory listing operations
+      if (
+        "limit" in rawInput &&
+        "offset" in rawInput &&
+        "file_path" in rawInput
+      ) {
+        console.log("[FRONTEND V2] Auto-approving paginated file read:", title);
+        return true;
+      }
     }
 
     // If tool title suggests it's read-only
@@ -185,9 +250,34 @@ export class AgentService {
       "fetch",
       "load",
       "grep",
+      "glob",
+      "navigate",
+      "snapshot",
+      "screenshot",
+      "console",
+      "network",
+      "inspect",
+      "check",
+      "verify",
+      "validate",
+      "analyze",
+      "parse",
+      "extract",
+      "browse",
+      "open",
     ];
     if (readOnlyKeywords.some((keyword) => title.includes(keyword))) {
       console.log("[FRONTEND V2] Auto-approving based on title:", title);
+      return true;
+    }
+
+    // Check kind for read-only patterns
+    if (
+      kind.includes("read") ||
+      kind.includes("get") ||
+      kind.includes("fetch")
+    ) {
+      console.log("[FRONTEND V2] Auto-approving based on kind:", kind);
       return true;
     }
 
