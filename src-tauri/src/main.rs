@@ -5,6 +5,7 @@ mod acp_v2;
 mod auth;
 mod commands;
 mod conversations;
+mod sessions;
 mod settings;
 mod spaces;
 
@@ -61,6 +62,12 @@ fn main() {
             commands::expand_slash_command,
             commands::create_slash_command,
             commands::delete_slash_command,
+            // Session persistence
+            sessions::save_session,
+            sessions::load_session,
+            sessions::get_active_session_for_space,
+            sessions::deactivate_session,
+            sessions::cleanup_old_sessions,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
