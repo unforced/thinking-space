@@ -186,7 +186,10 @@ User sees response
 1. ✅ ~~Tool Call UI~~ - **DONE**
 2. ✅ ~~Permission Dialog~~ - **DONE**
 3. ✅ ~~Auto-approval for safe operations~~ - **DONE**
-4. **Testing & Polish** - Real-world usage testing
+4. **Permission Request Bug** - Multiple simultaneous permissions may hang
+   - Status: Improved error handling and logging added (Oct 16)
+   - Need: Test with file write operations, verify fix works
+5. **Testing & Polish** - Real-world usage testing
    - Status: All UI components implemented
    - Need: User testing, edge case handling, polish
 
