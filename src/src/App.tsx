@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { SpaceList } from "./components/SpaceList";
 import { CreateSpaceModal } from "./components/CreateSpaceModal";
 import { ChatArea } from "./components/ChatArea";
@@ -16,7 +15,7 @@ function App() {
   const [showClaudeMdEditor, setShowClaudeMdEditor] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showArtifacts, setShowArtifacts] = useState(false);
-  const { loadSettings, hasCompletedOnboarding, completeOnboarding, apiKey } =
+  const { loadSettings, hasCompletedOnboarding, completeOnboarding } =
     useSettingsStore();
   const { currentSpace } = useSpacesStore();
   const { loadMessagesForSpace } = useChatStore();
@@ -29,12 +28,9 @@ function App() {
 
   useEffect(() => {
     loadSettings();
-
-    // Start sidecar - works with both Claude.ai login (~/.claude.json) or API key
-    invoke("agent_start_sidecar", { apiKey: apiKey || null })
-      .then(() => console.log("Agent sidecar started"))
-      .catch((error) => console.error("Failed to start agent sidecar:", error));
-  }, [loadSettings, apiKey]);
+    // Note: ACP v2 adapter starts automatically on first message send
+    // No need to start it eagerly here
+  }, [loadSettings]);
 
   // Load conversation when Space changes
   useEffect(() => {

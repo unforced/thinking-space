@@ -59,6 +59,15 @@ fn init_database(conn: &Connection) -> Result<(), String> {
     )
     .map_err(|e| format!("Failed to create conversations table: {}", e))?;
 
+    // Create index on updated_at for efficient sorting in list_conversations
+    // This improves performance when displaying conversation history
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_conversations_updated_at
+         ON conversations(updated_at DESC)",
+        [],
+    )
+    .map_err(|e| format!("Failed to create index: {}", e))?;
+
     Ok(())
 }
 

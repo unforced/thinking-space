@@ -263,5 +263,43 @@ pub fn open_file(path: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn read_file_content(path: String) -> Result<String, String> {
-    fs::read_to_string(&path).map_err(|e| format!("Failed to read file: {}", e))
+    // Security: Validate path to prevent path traversal attacks
+    let path_buf = PathBuf::from(&path);
+
+    // Canonicalize to resolve symlinks and relative paths
+    let canonical = path_buf
+        .canonicalize()
+        .map_err(|e| format!("Invalid path: {}", e))?;
+
+    // Only allow reads from user's home directory
+    let home_dir = dirs::home_dir().ok_or("Cannot determine home directory")?;
+
+    if !canonical.starts_with(&home_dir) {
+        return Err("Access denied: path outside allowed directory".to_string());
+    }
+
+    // Additional check: Don't allow reading sensitive files
+    let file_name = canonical.file_name().and_then(|n| n.to_str()).unwrap_or("");
+
+    // Block common sensitive files
+    let blocked_files = [
+        ".env",
+        ".aws",
+        ".ssh",
+        "id_rsa",
+        "id_ed25519",
+        "credentials",
+        "config",
+        ".netrc",
+        ".git-credentials",
+    ];
+
+    if blocked_files
+        .iter()
+        .any(|&blocked| file_name.contains(blocked))
+    {
+        return Err("Access denied: cannot read sensitive files".to_string());
+    }
+
+    fs::read_to_string(&canonical).map_err(|e| format!("Failed to read file: {}", e))
 }
