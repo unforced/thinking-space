@@ -150,6 +150,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
         conversationHistory,
       })) {
         console.log("[CHAT STORE] Received chunk:", chunk.substring(0, 50));
+        // Add newline between chunks if the previous chunk didn't end with one
+        // This ensures proper formatting when Claude sends multiple thinking parts
+        if (
+          fullResponse.length > 0 &&
+          !fullResponse.endsWith("\n") &&
+          !chunk.startsWith("\n")
+        ) {
+          fullResponse += "\n";
+        }
         fullResponse += chunk;
         set({ currentStreamingMessage: fullResponse });
       }

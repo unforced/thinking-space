@@ -6,6 +6,7 @@ interface PermissionDialogProps {
   onApprove: (optionId: string) => void;
   onDeny: () => void;
   onAlwaysAllow?: () => void;
+  queueLength?: number;
 }
 
 /**
@@ -18,6 +19,7 @@ export function PermissionDialog({
   onApprove,
   onDeny,
   onAlwaysAllow,
+  queueLength = 0,
 }: PermissionDialogProps) {
   if (!request) return null;
 
@@ -89,9 +91,16 @@ export function PermissionDialog({
           </svg>
         </div>
         <div className="flex-1 min-w-0">
-          <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
-            Permission Required
-          </h4>
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+              Permission Required
+            </h4>
+            {queueLength > 1 && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100">
+                {queueLength} pending
+              </span>
+            )}
+          </div>
           <p className="text-sm text-gray-700 dark:text-gray-300 mt-0.5">
             {request.title || "Claude needs approval to continue"}
           </p>

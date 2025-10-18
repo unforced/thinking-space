@@ -25,9 +25,13 @@ export function ChatArea() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Permission and tool call state
-  const [permissionRequest, setPermissionRequest] =
-    useState<PermissionRequest | null>(null);
+  const [permissionQueue, setPermissionQueue] = useState<PermissionRequest[]>(
+    [],
+  );
   const [toolCalls, setToolCalls] = useState<Map<string, ToolCall>>(new Map());
+
+  // Current permission is the first in queue
+  const permissionRequest = permissionQueue[0] || null;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -37,7 +41,8 @@ export function ChatArea() {
   useEffect(() => {
     agentService.onPermissionRequest = (request) => {
       console.log("[ChatArea] Permission request received:", request.title);
-      setPermissionRequest(request);
+      // Add to queue instead of replacing
+      setPermissionQueue((prev) => [...prev, request]);
     };
 
     agentService.onToolCall = (toolCall) => {
@@ -137,7 +142,7 @@ export function ChatArea() {
     // Clear previous tool calls and permission requests for new message
     console.log("[ChatArea] Clearing previous tool calls and permissions");
     setToolCalls(new Map());
-    setPermissionRequest(null);
+    setPermissionQueue([]);
 
     // Pass file paths to sendMessage
     const filePaths =
@@ -165,7 +170,8 @@ export function ChatArea() {
         optionId,
         false,
       );
-      setPermissionRequest(null);
+      // Remove the processed request from the queue
+      setPermissionQueue((prev) => prev.slice(1));
     }
   };
 
@@ -176,7 +182,8 @@ export function ChatArea() {
         null,
         true,
       );
-      setPermissionRequest(null);
+      // Remove the processed request from the queue
+      setPermissionQueue((prev) => prev.slice(1));
     }
   };
 
@@ -287,6 +294,7 @@ export function ChatArea() {
                       onApprove={handlePermissionApprove}
                       onDeny={handlePermissionDeny}
                       onAlwaysAllow={handleAlwaysAllow}
+                      queueLength={permissionQueue.length}
                     />
                   )}
 
