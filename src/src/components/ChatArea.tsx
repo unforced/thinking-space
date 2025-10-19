@@ -10,7 +10,6 @@ import { PermissionDialog } from "./PermissionDialog";
 import { ToolCallDisplay } from "./ToolCallDisplay";
 import { TokenUsageDisplay } from "./TokenUsageDisplay";
 import { CommandPalette } from "./CommandPalette";
-import { PermissionTestPanel } from "./PermissionTestPanel";
 import { ContextWarning } from "./ContextWarning";
 import {
   agentService,
@@ -140,6 +139,51 @@ export function ChatArea() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [permissionRequest]);
+
+  // Keyboard shortcut: Cmd+K to toggle command palette
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd+K (Mac) or Ctrl+K (Windows/Linux)
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+
+        // Focus the textarea
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+
+          // Insert "/" at cursor position or at end
+          const textarea = textareaRef.current;
+          const start = textarea.selectionStart;
+          const end = textarea.selectionEnd;
+          const currentValue = textarea.value;
+
+          // If there's already a "/" at the cursor, just show palette
+          const charAtCursor = currentValue[start - 1];
+          if (charAtCursor === "/") {
+            setShowCommandPalette(true);
+            return;
+          }
+
+          // Otherwise insert "/" and show palette
+          const newValue =
+            currentValue.substring(0, start) +
+            "/" +
+            currentValue.substring(end);
+
+          setInput(newValue);
+          setShowCommandPalette(true);
+
+          // Set cursor position after the "/"
+          setTimeout(() => {
+            textarea.selectionStart = textarea.selectionEnd = start + 1;
+          }, 0);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [input]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -281,9 +325,6 @@ export function ChatArea() {
 
   return (
     <div className="flex-1 flex flex-col relative">
-      {/* Permission Test Panel - for debugging (remove in production) */}
-      <PermissionTestPanel />
-
       {/* Token Usage Display */}
       <TokenUsageDisplay />
 
@@ -481,7 +522,7 @@ export function ChatArea() {
                 const target = e.target as HTMLTextAreaElement;
                 setCursorPosition(target.selectionStart);
               }}
-              placeholder="Type a message... (Shift+Enter for new line, / for commands)"
+              placeholder="Type a message... (⌘K for commands, Shift+Enter for new line)"
               className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg
                        bg-white dark:bg-gray-800 text-gray-900 dark:text-white
                        focus:ring-2 focus:ring-blue-500 focus:border-transparent
