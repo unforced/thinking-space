@@ -10,6 +10,8 @@ import { PermissionDialog } from "./PermissionDialog";
 import { ToolCallDisplay } from "./ToolCallDisplay";
 import { TokenUsageDisplay } from "./TokenUsageDisplay";
 import { CommandPalette } from "./CommandPalette";
+import { PermissionTestPanel } from "./PermissionTestPanel";
+import { ContextWarning } from "./ContextWarning";
 import {
   agentService,
   type PermissionRequest,
@@ -46,9 +48,24 @@ export function ChatArea() {
   // Set up agent service callbacks
   useEffect(() => {
     agentService.onPermissionRequest = (request) => {
-      console.log("[ChatArea] Permission request received:", request.title);
+      console.log("[ChatArea] Permission request received:", request);
+      console.log(
+        "[ChatArea] Current permission queue length:",
+        permissionQueue.length,
+      );
+      console.log("[ChatArea] Streaming state:", streaming);
+      console.log(
+        "[ChatArea] Current streaming message:",
+        currentStreamingMessage,
+      );
       // Add to queue instead of replacing
-      setPermissionQueue((prev) => [...prev, request]);
+      setPermissionQueue((prev) => {
+        console.log(
+          "[ChatArea] Adding to queue, new length will be:",
+          prev.length + 1,
+        );
+        return [...prev, request];
+      });
     };
 
     agentService.onToolCall = (toolCall) => {
@@ -264,6 +281,9 @@ export function ChatArea() {
 
   return (
     <div className="flex-1 flex flex-col relative">
+      {/* Permission Test Panel - for debugging (remove in production) */}
+      <PermissionTestPanel />
+
       {/* Token Usage Display */}
       <TokenUsageDisplay />
 
@@ -273,6 +293,9 @@ export function ChatArea() {
           {currentSpace.name}
         </h2>
       </div>
+
+      {/* Context Warning */}
+      <ContextWarning />
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-6">
@@ -326,53 +349,73 @@ export function ChatArea() {
               </div>
             ))}
 
-            {/* Streaming message */}
-            {streaming && currentStreamingMessage && (
-              <div className="flex justify-start">
-                <div className="bg-gray-100 dark:bg-gray-800 rounded-lg px-4 py-3 max-w-[80%]">
-                  {/* Tool calls */}
-                  {toolCalls.size > 0 && (
-                    <div className="mb-3">
-                      {Array.from(toolCalls.values()).map((tc) => (
-                        <ToolCallDisplay key={tc.toolCallId} toolCall={tc} />
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Permission request - inline with message */}
-                  {permissionRequest && (
-                    <PermissionDialog
-                      request={permissionRequest}
-                      onApprove={handlePermissionApprove}
-                      onDeny={handlePermissionDeny}
-                      onAlwaysAllow={handleAlwaysAllow}
-                      queueLength={permissionQueue.length}
-                    />
-                  )}
-
-                  {/* Message content */}
-                  <div className="prose dark:prose-invert max-w-none prose-pre:bg-gray-900 prose-pre:text-gray-100 text-gray-900 dark:text-white">
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm]}
-                      rehypePlugins={[rehypeHighlight]}
-                    >
-                      {currentStreamingMessage}
-                    </ReactMarkdown>
-                  </div>
-                  <div className="flex items-center gap-1 mt-2">
-                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
-                    <div
-                      className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"
-                      style={{ animationDelay: "75ms" }}
-                    ></div>
-                    <div
-                      className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"
-                      style={{ animationDelay: "150ms" }}
-                    ></div>
-                  </div>
-                </div>
+            {/* Debug info (temporary - remove in production) */}
+            {streaming && (
+              <div className="bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-400 rounded p-2 text-xs mb-4">
+                <strong>Debug:</strong> streaming={String(streaming)} |
+                hasMessage={String(!!currentStreamingMessage)} | toolCalls=
+                {toolCalls.size} | permissionRequest=
+                {permissionRequest ? "YES" : "NO"} | queueLength=
+                {permissionQueue.length}
               </div>
             )}
+
+            {/* Streaming message - show if we have content OR tool calls OR permission requests */}
+            {streaming &&
+              (currentStreamingMessage ||
+                toolCalls.size > 0 ||
+                permissionRequest) && (
+                <div className="flex justify-start">
+                  <div className="bg-gray-100 dark:bg-gray-800 rounded-lg px-4 py-3 max-w-[80%]">
+                    {/* Tool calls */}
+                    {toolCalls.size > 0 && (
+                      <div className="mb-3">
+                        {Array.from(toolCalls.values()).map((tc) => (
+                          <ToolCallDisplay key={tc.toolCallId} toolCall={tc} />
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Permission request - inline with message */}
+                    {permissionRequest && (
+                      <PermissionDialog
+                        request={permissionRequest}
+                        onApprove={handlePermissionApprove}
+                        onDeny={handlePermissionDeny}
+                        onAlwaysAllow={handleAlwaysAllow}
+                        queueLength={permissionQueue.length}
+                      />
+                    )}
+
+                    {/* Message content */}
+                    {currentStreamingMessage && (
+                      <div className="prose dark:prose-invert max-w-none prose-pre:bg-gray-900 prose-pre:text-gray-100 text-gray-900 dark:text-white">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          rehypePlugins={[rehypeHighlight]}
+                        >
+                          {currentStreamingMessage}
+                        </ReactMarkdown>
+                      </div>
+                    )}
+
+                    {/* Streaming indicator */}
+                    {streaming && (
+                      <div className="flex items-center gap-1 mt-2">
+                        <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
+                        <div
+                          className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"
+                          style={{ animationDelay: "75ms" }}
+                        ></div>
+                        <div
+                          className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"
+                          style={{ animationDelay: "150ms" }}
+                        ></div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
             {/* Loading indicator */}
             {streaming && !currentStreamingMessage && (

@@ -14,11 +14,27 @@ export interface Message {
   };
 }
 
+// Rough token estimation: ~4 characters per token (Claude's approximation)
+const CHARS_PER_TOKEN = 4;
+const CONTEXT_WARNING_THRESHOLD = 150000; // Warn at 150K tokens (~200K limit)
+const CONTEXT_LIMIT = 200000; // Hard limit
+
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / CHARS_PER_TOKEN);
+}
+
+function estimateConversationTokens(messages: Message[]): number {
+  return messages.reduce((total, msg) => {
+    return total + estimateTokens(msg.content);
+  }, 0);
+}
+
 interface ChatState {
   messages: Message[];
   streaming: boolean;
   error: string | null;
   currentStreamingMessage: string;
+  contextTokens: number; // Estimated tokens in current conversation
 
   // Actions
   sendMessage: (content: string, files?: string[]) => Promise<void>;
@@ -29,6 +45,12 @@ interface ChatState {
     spaceId: string,
     spaceName: string,
   ) => Promise<void>;
+  getContextInfo: () => {
+    tokens: number;
+    approachingLimit: boolean;
+    atLimit: boolean;
+    percentUsed: number;
+  };
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -36,6 +58,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   streaming: false,
   error: null,
   currentStreamingMessage: "",
+  contextTokens: 0,
 
   sendMessage: async (content: string, files?: string[]) => {
     console.log("[CHAT STORE] sendMessage called with:", content);
@@ -191,9 +214,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   addMessage: (message: Message) => {
-    set((state) => ({
-      messages: [...state.messages, message],
-    }));
+    set((state) => {
+      const newMessages = [...state.messages, message];
+      return {
+        messages: newMessages,
+        contextTokens: estimateConversationTokens(newMessages),
+      };
+    });
   },
 
   loadMessagesForSpace: async (spaceId: string) => {
@@ -203,12 +230,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
         spaceId,
       });
       console.log("[CHAT STORE] Loaded", messages.length, "messages");
-      set({ messages, error: null });
+      const contextTokens = estimateConversationTokens(messages);
+      console.log("[CHAT STORE] Estimated tokens:", contextTokens);
+      set({ messages, contextTokens, error: null });
     } catch (error) {
       console.error("[CHAT STORE] Failed to load messages:", error);
       set({
         error: error instanceof Error ? error.message : String(error),
-        messages: [], // Start fresh if load fails
+        messages: [],
+        contextTokens: 0,
       });
     }
   },
@@ -228,5 +258,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
       console.error("[CHAT STORE] Failed to save conversation:", error);
       // Don't set error state for save failures - they're not critical to UX
     }
+  },
+
+  getContextInfo: () => {
+    const tokens = get().contextTokens;
+    return {
+      tokens,
+      approachingLimit: tokens >= CONTEXT_WARNING_THRESHOLD,
+      atLimit: tokens >= CONTEXT_LIMIT,
+      percentUsed: Math.round((tokens / CONTEXT_LIMIT) * 100),
+    };
   },
 }));

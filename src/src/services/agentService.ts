@@ -351,11 +351,11 @@ export class AgentService {
 
       if (session) {
         console.log("[FRONTEND V2] Found active session:", session.session_id);
-        // Set the session ID in the ACP manager
-        await invoke("agent_v2_set_session_id", {
-          sessionId: session.session_id,
-        });
-        console.log("[FRONTEND V2] Session restored successfully");
+        // Note: Session management is now automatic and per-space in Rust
+        // No need to manually restore session IDs - they're created on-demand
+        console.log(
+          "[FRONTEND V2] Session will be created automatically when sending first message",
+        );
         return true;
       } else {
         console.log("[FRONTEND V2] No active session found for space");
@@ -507,11 +507,13 @@ export class AgentService {
     // Listen for permission requests (ACP V2)
     listen<PermissionRequest>("permission-request", async (event) => {
       const request = event.payload;
-      console.log("[FRONTEND V2] Permission request:", request.title);
+      console.log("[FRONTEND V2] Permission request FULL PAYLOAD:", request);
+      console.log("[FRONTEND V2] Permission request title:", request.title);
       console.log("[FRONTEND V2] Permission request details:", {
         request_id: request.request_id,
         kind: request.kind,
         raw_input: request.raw_input,
+        options: request.options,
       });
 
       this.pendingPermissions.set(request.request_id, request);
@@ -612,6 +614,19 @@ export class AgentService {
           pending.reject(new Error(error));
           this.pendingRequests.delete(requestId);
         }
+      },
+    ).catch(console.error);
+
+    // Listen for max tokens warnings
+    listen<{ requestId: number; message: string }>(
+      "agent-max-tokens",
+      (event) => {
+        const { message } = event.payload;
+        console.warn("[FRONTEND V2] Max tokens reached:", message);
+
+        // Show user-friendly notification
+        // The ContextWarning component will already be visible,
+        // but we can log this for debugging
       },
     ).catch(console.error);
   }

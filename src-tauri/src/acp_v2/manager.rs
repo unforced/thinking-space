@@ -9,6 +9,7 @@ use agent_client_protocol_schema::{
 };
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
@@ -21,7 +22,8 @@ pub struct AcpManager {
     client: Arc<ThinkingSpaceClient>,
     permission_response_tx: mpsc::UnboundedSender<FrontendPermissionResponse>,
     runtime: tokio::runtime::Runtime,
-    session_id: Arc<Mutex<Option<SessionId>>>,
+    // Map of working_directory -> SessionId to support multiple spaces
+    sessions: Arc<Mutex<HashMap<String, SessionId>>>,
     app_handle: Arc<Mutex<Option<AppHandle>>>,
     shutdown_tx: Arc<Mutex<Option<oneshot::Sender<()>>>>,
 }
@@ -42,7 +44,7 @@ impl AcpManager {
             client: Arc::new(client),
             permission_response_tx,
             runtime,
-            session_id: Arc::new(Mutex::new(None)),
+            sessions: Arc::new(Mutex::new(HashMap::new())),
             app_handle: Arc::new(Mutex::new(None)),
             shutdown_tx: Arc::new(Mutex::new(None)),
         }
@@ -148,6 +150,10 @@ impl AcpManager {
                     "[ACP V2] Initialized! Protocol version: {:?}",
                     init_response.protocol_version
                 );
+                println!(
+                    "[ACP V2] Agent capabilities - load_session: {}",
+                    init_response.agent_capabilities.load_session
+                );
 
                 // Store connection and process (wrap connection in Arc)
                 *connection_arc.lock() = Some(Arc::new(conn));
@@ -196,7 +202,7 @@ impl AcpManager {
             });
         }
 
-        *self.session_id.lock() = None;
+        self.sessions.lock().clear();
         println!("[ACP V2] Stopped");
         Ok(())
     }
@@ -244,9 +250,9 @@ pub fn agent_v2_send_message(
         lock.as_ref().ok_or("Not connected")?.clone()
     };
 
-    let session_id_arc = state.session_id.clone();
+    let sessions_map = state.sessions.clone();
     let working_directory = params.working_directory.clone();
-    let system_prompt = params.system_prompt.clone();
+    let _system_prompt = params.system_prompt.clone(); // Reserved for future use
     let message = params.message.clone();
     let conversation_history = params.conversation_history.clone();
     let app_handle_arc = state.app_handle.clone();
@@ -283,91 +289,136 @@ pub fn agent_v2_send_message(
                 "[ACP V2] Inside LocalSet async block for request {}",
                 request_id
             );
-            // Get or create session
-            let session_id = {
-                let lock = session_id_arc.lock();
-                lock.clone()
-            };
-
-            let session_id = if let Some(id) = session_id {
-                println!("[ACP V2] Reusing existing session: {}", id.0);
-                id
-            } else {
-                println!("[ACP V2] Creating new session...");
-
-                // Build system prompt with history if provided
-                let mut full_system_prompt = system_prompt.unwrap_or_default();
-
-                if let Some(history) = conversation_history {
-                    if !history.is_empty() {
-                        full_system_prompt.push_str("\n\n# Previous Conversation:\n");
-                        for msg in history {
-                            full_system_prompt.push_str(&format!(
-                                "\n{}: {}\n",
-                                if msg.role == "user" {
-                                    "User"
-                                } else {
-                                    "Assistant"
-                                },
-                                msg.content
-                            ));
-                        }
-                        full_system_prompt.push_str("\n# Current Request:\n");
-                    }
-                }
-
-                let session_response = conn
-                    .new_session(NewSessionRequest {
-                        mcp_servers: vec![],
-                        cwd: PathBuf::from(working_directory),
-                        meta: None,
-                    })
-                    .await
-                    .map_err(|e| format!("Failed to create session: {}", e))?;
-
-                let session_id = session_response.session_id.clone();
-                *session_id_arc.lock() = Some(session_id.clone());
-
-                println!("[ACP V2] Session created: {}", session_id.0);
-
-                // Emit session created event to frontend so it can persist the session
-                if let Some(handle) = app_handle_arc.lock().as_ref() {
-                    let _ = handle.emit(
-                        "agent-session-created",
-                        serde_json::json!({
-                            "sessionId": session_id.0,
-                        }),
-                    );
-                    println!("[ACP V2] Emitted agent-session-created event");
-                }
-
-                session_id
+            // Get or create session for this space
+            let cached_session_id = {
+                let lock = sessions_map.lock();
+                lock.get(&working_directory).cloned()
             };
 
             // Set the current request ID so the client can include it in events
             client.set_current_request_id(request_id);
 
-            // Send the prompt
-            println!("[ACP V2] Sending prompt...");
+            // Determine if we need to create a new session
+            // We ONLY create a new session if no cached session exists for this space
+            // Having conversation_history doesn't mean we need a new session -
+            // it's sent on every message by the frontend
+            let need_new_session = cached_session_id.is_none();
 
-            let prompt_result = conn
-                .prompt(PromptRequest {
-                    session_id: session_id.clone(),
+            let mut session_id = cached_session_id;
+
+            // If we need a new session (first message or restoring conversation), create it
+            if need_new_session {
+                println!("[ACP V2] Creating new session for conversation...");
+
+                // Create new session
+                let session_response = conn
+                    .new_session(NewSessionRequest {
+                        mcp_servers: vec![],
+                        cwd: PathBuf::from(working_directory.clone()),
+                        meta: None,
+                    })
+                    .await
+                    .map_err(|e| format!("Failed to create session: {}", e))?;
+
+                session_id = Some(session_response.session_id.clone());
+
+                // Store session ID for this space
+                sessions_map.lock().insert(
+                    working_directory.clone(),
+                    session_response.session_id.clone()
+                );
+
+                println!(
+                    "[ACP V2] New session created for space '{}': {}",
+                    working_directory,
+                    session_response.session_id.0
+                );
+
+                // Emit session created event to frontend
+                if let Some(handle) = app_handle_arc.lock().as_ref() {
+                    let _ = handle.emit(
+                        "agent-session-created",
+                        serde_json::json!({
+                            "sessionId": session_response.session_id.0,
+                        }),
+                    );
+                }
+
+            }
+
+            // Prepare the current prompt
+            // If we just created a new session and have conversation history,
+            // include the history in this first prompt so the SDK can see
+            // the full conversation for context compaction
+            let prompt_text = if need_new_session && conversation_history.is_some() {
+                let history = conversation_history.as_ref().unwrap();
+                if !history.is_empty() {
+                    println!(
+                        "[ACP V2] Including {} previous messages as context in first prompt",
+                        history.len()
+                    );
+
+                    // Format history as text that the SDK can use for context
+                    let mut history_text = String::from("This session is being continued from a previous conversation. Here is the conversation history:\n\n");
+
+                    for msg in history.iter() {
+                        history_text.push_str(&format!("<previous_{}>\n{}\n</previous_{}>\n\n",
+                            msg.role, msg.content, msg.role));
+                    }
+
+                    history_text.push_str("--- End of previous conversation ---\n\nCurrent message:\n");
+                    history_text.push_str(&message);
+
+                    history_text
+                } else {
+                    message.clone()
+                }
+            } else {
+                message.clone()
+            };
+
+            // Send the prompt
+            println!("[ACP V2] Sending prompt ({} chars)...", prompt_text.len());
+
+            let prompt_result = if let Some(ref sid) = session_id {
+                conn.prompt(PromptRequest {
+                    session_id: sid.clone(),
                     prompt: vec![ContentBlock::Text(TextContent {
-                        text: message,
+                        text: prompt_text,
                         annotations: None,
                         meta: None,
                     })],
                     meta: None,
                 })
-                .await;
+                .await
+            } else {
+                // This should never happen now
+                return Err("[ACP V2] No session available after creation attempt".to_string());
+            };
 
+            // Handle the prompt result
             match prompt_result {
                 Ok(response) => {
                     println!(
                         "[ACP V2] Prompt completed with stop reason: {:?}",
                         response.stop_reason
                     );
+
+                    // Check if we hit max tokens
+                    use agent_client_protocol_schema::StopReason;
+                    if matches!(response.stop_reason, StopReason::MaxTokens) {
+                        eprintln!("[ACP V2] WARNING: Hit max tokens limit!");
+                        // Emit special event for max tokens
+                        if let Some(handle) = app_handle_arc.lock().as_ref() {
+                            let _ = handle.emit(
+                                "agent-max-tokens",
+                                serde_json::json!({
+                                    "requestId": request_id,
+                                    "message": "Conversation has reached the maximum context window. Consider starting a fresh conversation.",
+                                }),
+                            );
+                        }
+                    }
 
                     // Emit completion event to frontend
                     if let Some(handle) = app_handle_arc.lock().as_ref() {
@@ -424,19 +475,6 @@ pub fn agent_v2_send_permission_response(
     state.send_permission_response(response)
 }
 
-#[tauri::command]
-pub fn agent_v2_get_current_session_id(
-    state: tauri::State<'_, Arc<AcpManager>>,
-) -> Result<Option<String>, String> {
-    let session_id = state.session_id.lock();
-    Ok(session_id.as_ref().map(|id| id.0.to_string()))
-}
-
-#[tauri::command]
-pub fn agent_v2_set_session_id(
-    state: tauri::State<'_, Arc<AcpManager>>,
-    session_id: String,
-) -> Result<(), String> {
-    *state.session_id.lock() = Some(SessionId(session_id.into()));
-    Ok(())
-}
+// Note: Session management is now automatic and per-space
+// Sessions are created on-demand and cached in the sessions HashMap
+// No need for manual get/set session ID commands

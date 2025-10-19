@@ -21,7 +21,12 @@ export function PermissionDialog({
   onAlwaysAllow,
   queueLength = 0,
 }: PermissionDialogProps) {
-  if (!request) return null;
+  if (!request) {
+    console.log("[PermissionDialog] No request provided");
+    return null;
+  }
+
+  console.log("[PermissionDialog] Rendering with request:", request);
 
   const handleAlwaysAllow = async () => {
     // Load current settings

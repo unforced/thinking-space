@@ -57,8 +57,6 @@ fn main() {
             acp_v2::manager::agent_v2_start,
             acp_v2::manager::agent_v2_stop,
             acp_v2::manager::agent_v2_send_permission_response,
-            acp_v2::manager::agent_v2_get_current_session_id,
-            acp_v2::manager::agent_v2_set_session_id,
             // Slash commands
             commands::list_slash_commands,
             commands::load_slash_command,

@@ -1,7 +1,7 @@
 # Thinking Space - Current State
 
-**Last Updated:** October 16, 2024
-**Status:** ✅ Working - Full ACP Integration with UI Complete
+**Last Updated:** October 18, 2025
+**Status:** ✅ Working - Full ACP Integration with UI Complete + Critical Permission Bug Fixed
 
 ---
 
@@ -167,7 +167,7 @@ User sees response
 - Completion tracking
 - Request ID correlation across events
 
-✅ **UI Components (October 16, 2024)**
+✅ **UI Components**
 
 - **ToolCallDisplay** - Inline display of tool usage with status (running/success/failed)
 - **PermissionDialog** - Zed-style inline permission requests (amber-highlighted, compact)
@@ -176,6 +176,52 @@ User sees response
   - File reads (when no write fields present)
   - Safe bash commands (ls, grep, cat, find, etc.)
   - Pattern matching (glob, search queries)
+
+✅ **Bug Fixes (October 18, 2025)**
+
+- **Permission Dialog Not Showing** - CRITICAL FIX
+  - Issue: Permission dialogs weren't rendering when they arrived before message content
+  - Root cause: Conditional rendering logic only showed dialog when `currentStreamingMessage` existed
+  - Fix: Changed condition to show if streaming AND (has message OR has tool calls OR has permission)
+  - Impact: Users can now actually approve/deny tool operations (was completely broken)
+
+- **Session Recovery** - CRITICAL FIX
+  - Issue: Stale session IDs from SQLite caused "Session not found" errors
+  - Root cause: App tried to reuse session IDs after ACP adapter restart
+  - Fix: Automatic session recovery - detect error, create new session, retry prompt
+  - Impact: App no longer hangs on stale sessions, seamless recovery
+
+- **Conversation Context Restoration** - CRITICAL FIX (Updated Oct 18, 2025)
+  - Issue: Previous conversations lost context when app restarted
+  - Root cause: ACP adapter sessions are in-memory only, lost when app/adapter restarts
+  - Solution: Include full conversation history in first prompt when restoring conversations
+  - Implementation:
+    - Format previous messages with XML tags: `<previous_user>...</previous_user>`, `<previous_assistant>...</previous_assistant>`
+    - Prepend formatted history to first user message after restoration
+    - Claude Agent SDK sees full conversation and applies automatic context compaction
+    - Subsequent messages use normal flow (SDK maintains context within session)
+  - Research findings:
+    - ✅ claude-code-acp adapter declares `loadSession: true` but only loads from in-memory cache
+    - ❌ Sessions are NOT persisted to disk by adapter
+    - ❌ Zed also doesn't restore conversation context across restarts
+    - ✅ Claude Agent SDK has **built-in automatic context compaction** for 200K+ token conversations
+    - ✅ Our approach provides **better UX than Zed** by actually restoring context
+  - Impact: Conversations maintain full context across app restarts, leverages SDK's auto-compaction
+
+- **Context Window Management** - NEW FEATURE
+  - Research: Analyzed Zed's approach - uses prompt caching, no auto-compaction
+  - Implementation: Token counting + visual warnings (amber at 150K, red at 200K)
+  - Approach: Rely on Claude's prompt caching (5-min cache, 0.1x cost) for optimization
+  - UX: Clear warnings with "Start Fresh" option when approaching limits
+  - See: `dev-docs/CONTEXT-MANAGEMENT-2025-10-18.md` for research and design
+
+- **See also:** `dev-docs/PERMISSION-FIX-2025-10-18.md` for permission dialog fixes
+
+✅ **Debug Tools (October 18, 2025)**
+
+- **PermissionTestPanel** - Manual testing component for permission flow
+- **Debug info panel** - Shows streaming/permission/tool call state in UI
+- **Enhanced logging** - Comprehensive console logging throughout permission flow
 
 ---
 
@@ -186,12 +232,10 @@ User sees response
 1. ✅ ~~Tool Call UI~~ - **DONE**
 2. ✅ ~~Permission Dialog~~ - **DONE**
 3. ✅ ~~Auto-approval for safe operations~~ - **DONE**
-4. **Permission Request Bug** - Multiple simultaneous permissions may hang
-   - Status: Improved error handling and logging added (Oct 16)
-   - Need: Test with file write operations, verify fix works
+4. ✅ ~~Permission Request UI Bug~~ - **FIXED** (Oct 18, 2025)
 5. **Testing & Polish** - Real-world usage testing
-   - Status: All UI components implemented
-   - Need: User testing, edge case handling, polish
+   - Status: Core functionality working, permission flow fixed
+   - Need: Remove debug components, user testing, edge case handling
 
 ### Medium Priority (Polish)
 
