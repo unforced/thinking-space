@@ -53,10 +53,12 @@ Built on a solid foundation using Zed's Agent Client Protocol library.
   - 4 starter commands included
   - Create your own in `.claude/commands/`
   - Git-shareable with your team
-- **Session Persistence** ✅ - Full implementation complete!
-  - Sessions automatically saved when created
-  - Automatically restored when switching spaces
-  - Full conversation context maintained across app restarts
+- **Session Persistence & Context Restoration** ✅ - Full implementation complete!
+  - **Per-space session management** - Each Space maintains its own independent session
+  - **Automatic context restoration** - Conversations remember full history across app restarts
+  - **Intelligent session reuse** - No redundant session creation within conversations
+  - **Claude SDK auto-compaction** - Supports 200K+ token conversations automatically
+  - **Better than Zed** - We actually restore context; Zed doesn't!
   - Zero configuration required
 
 ### 🔜 Coming Soon

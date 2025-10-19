@@ -112,20 +112,95 @@ src-tauri/         Rust backend
 
 ### Documentation
 
-**IMPORTANT - Avoid Creating New Markdown Files:**
+**PHILOSOPHY - Keep Documentation Simple & Maintainable:**
 
-- ❌ **DON'T** create session summary markdown files in root
-- ❌ **DON'T** create new planning documents unless explicitly requested
-- ✅ **DO** update existing docs (`CURRENT-STATE.md`, `README.md`)
+We use a **"living documentation"** approach to avoid documentation sprawl:
+
+- **Few core docs that stay current** > Many outdated docs
+- **Update existing docs** > Create new ones
+- **Archive session notes regularly** > Let them accumulate
+- **Inline code comments** for complex logic > Separate explanation docs
+
+**Documentation Structure:**
+
+```
+dev-docs/
+├── README.md                    # Documentation index (you are here)
+├── CURRENT-STATE.md            # ⭐ LIVING DOC - Always keep current!
+├── NEXT-FEATURES-RECOMMENDATION.md  # ⭐ LIVING DOC - Roadmap
+├── PROGRESS-SUMMARY.md         # ⭐ LIVING DOC - Recent work
+├── ACP-LIBRARY-REFERENCE.md    # Reference material (stable)
+├── TESTING-PLAN.md             # Testing strategy (stable)
+├── archive/                    # Old docs, session notes
+│   ├── 2025-10-18-session-work/  # Dated session work
+│   └── session-notes/          # Historical session summaries
+└── [dated-docs].md            # Temporary - archive during cleanup
+```
+
+**The "Living Docs" (Always Keep Current):**
+
+1. **CURRENT-STATE.md** - Architecture, what works, what needs work
+2. **NEXT-FEATURES-RECOMMENDATION.md** - Roadmap and priorities
+3. **PROGRESS-SUMMARY.md** - Recent accomplishments
+4. **README.md** (root) - User-facing overview
+
+These are the **source of truth**. Update them continuously, never archive them.
+
+**Session/Dated Docs (Temporary):**
+
+- Created during development sessions (e.g., `PERMISSION-FIX-2025-10-18.md`)
+- Useful during active work on a feature
+- **Archive them during cleanup** - they become stale quickly
+- Move to `dev-docs/archive/YYYY-MM-DD-topic/` when done
+
+**When to Create New Docs:**
+
+✅ **DO create** temporary session docs if:
+
+- Documenting a complex bug fix in progress
+- Planning a major refactor (will archive after)
+- Capturing research findings for a specific feature
+
+❌ **DON'T create** new docs for:
+
+- Session summaries (let conversation history handle it)
+- Updates to existing features (update living docs instead)
+- Minor bug fixes (inline comments or git commit messages)
+
+**Regular Cleanup Process:**
+
+Every few weeks (or when dev-docs/ feels cluttered):
+
+1. Review all dated markdown files (`*-2025-*.md`)
+2. Move to `dev-docs/archive/YYYY-MM-DD-topic/`
+3. Update living docs with any valuable info from archived docs
+4. Commit with message: `docs: Archive session docs from [date range]`
+
+**During Active Development:**
+
+- ❌ **DON'T** create session summary markdown files
+- ✅ **DO** update `CURRENT-STATE.md` as you work
+- ✅ **DO** update `README.md` if user-facing feature changed
 - ✅ **DO** add inline code comments for complex logic
 
-**After completing work:**
+**After Completing Work:**
 
 1. Update `dev-docs/CURRENT-STATE.md` - mark completed items, update status
 2. Update `README.md` if user-facing feature changed
-3. Add inline code comments for complex logic
-4. Clean up any temporary notes/files created during work
-5. Re-read updated state doc to verify accuracy
+3. Update `PROGRESS-SUMMARY.md` with what was accomplished
+4. Add inline code comments for complex logic
+5. Archive any temporary session docs created
+6. Re-read updated docs to verify accuracy
+
+**The Goal:**
+
+Someone should be able to understand the **entire project state** by reading just:
+
+1. `README.md` (what it is, how to use it)
+2. `dev-docs/CURRENT-STATE.md` (architecture, status)
+3. `dev-docs/NEXT-FEATURES-RECOMMENDATION.md` (what's next)
+
+Everything else should be **easily archivable** without losing critical information.
 
 ## Key Concepts
 
