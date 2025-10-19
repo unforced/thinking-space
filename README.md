@@ -37,6 +37,7 @@ Built on a solid foundation using Zed's Agent Client Protocol library.
 ### ✅ Core Functionality (Stable)
 
 - **Streaming chat** with Claude (full ACP v2 integration)
+- **MCP Server Support** ⭐ - Connect to GitHub, databases, search, and more!
 - **Spaces** - Create unlimited contexts/projects
 - **CLAUDE.md context files** - Persistent memory per Space
 - **File operations** - Attach, read, write files locally
@@ -64,8 +65,8 @@ Built on a solid foundation using Zed's Agent Client Protocol library.
 ### 🔜 Coming Soon
 
 1. **Terminal Integration** (1 week) - Embedded terminal via ACP
-2. **MCP Server Integration** (2-3 weeks) - Connect to GitHub, databases, etc.
-3. **Multi-Buffer Diff View** (3-4 weeks) - Review AI changes side-by-side
+2. **Multi-Buffer Diff View** (2-3 weeks) - Review AI changes side-by-side
+3. **MCP Server UI** (Optional) - GUI for managing MCP servers
 
 See **[dev-docs/NEXT-FEATURES-RECOMMENDATION.md](dev-docs/NEXT-FEATURES-RECOMMENDATION.md)** for detailed roadmap.
 
@@ -251,10 +252,10 @@ npm run tauri build      # Production build
 ### vs Claude Desktop
 
 - ✅ Slash commands (we have, they don't)
+- ✅ MCP servers (we have, they don't yet!)
 - ✅ Local file access (unlimited)
 - ✅ Persistent context (CLAUDE.md)
-- ✅ Session persistence (backend ready)
-- ⚠️ MCP servers (coming soon)
+- ✅ Session persistence with context restoration
 
 ### vs Zed
 
@@ -267,8 +268,8 @@ npm run tauri build      # Production build
 
 - ✅ Beautiful GUI (our advantage)
 - ✅ Slash commands (parity!)
+- ✅ MCP servers (parity!)
 - ✅ Visual feedback (tool calls, permissions)
-- ⚠️ MCP servers (coming in 2-3 weeks)
 - ⚠️ Terminal (coming in 1 week)
 
 **Our Niche:** Power of Claude Code + simplicity of Claude Desktop + unique Space metaphor

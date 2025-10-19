@@ -2,6 +2,7 @@
 // Handles process spawning, connection setup, and request/response coordination
 
 use super::client::{FrontendPermissionResponse, ThinkingSpaceClient};
+use crate::mcp_config::McpConfig;
 use agent_client_protocol::{Agent, ClientSideConnection};
 use agent_client_protocol_schema::{
     ClientCapabilities, ContentBlock, InitializeRequest, NewSessionRequest, PromptRequest,
@@ -10,7 +11,7 @@ use agent_client_protocol_schema::{
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::{mpsc, oneshot};
@@ -310,10 +311,33 @@ pub fn agent_v2_send_message(
             if need_new_session {
                 println!("[ACP V2] Creating new session for conversation...");
 
+                // Load MCP configuration from the Space directory
+                let mcp_config = McpConfig::load_from_space(Path::new(&working_directory))
+                    .unwrap_or_else(|e| {
+                        println!("[ACP V2] Failed to load MCP config: {}, using no servers", e);
+                        McpConfig {
+                            mcp_servers: HashMap::new(),
+                        }
+                    });
+
+                let mcp_servers = mcp_config.to_acp_servers();
+
+                if !mcp_servers.is_empty() {
+                    let server_names: Vec<&str> = mcp_servers.iter().map(|s| match s {
+                        agent_client_protocol_schema::McpServer::Stdio { name, .. } => name.as_str(),
+                        agent_client_protocol_schema::McpServer::Http { name, .. } => name.as_str(),
+                        agent_client_protocol_schema::McpServer::Sse { name, .. } => name.as_str(),
+                    }).collect();
+                    println!("[ACP V2] Loaded {} MCP server(s): {}",
+                        mcp_servers.len(),
+                        server_names.join(", ")
+                    );
+                }
+
                 // Create new session
                 let session_response = conn
                     .new_session(NewSessionRequest {
-                        mcp_servers: vec![],
+                        mcp_servers,
                         cwd: PathBuf::from(working_directory.clone()),
                         meta: None,
                     })

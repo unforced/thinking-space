@@ -5,6 +5,7 @@ mod acp_v2;
 mod auth;
 mod commands;
 mod conversations;
+mod mcp_config;
 mod sessions;
 mod settings;
 mod spaces;
